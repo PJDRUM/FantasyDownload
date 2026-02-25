@@ -1,131 +1,200 @@
+#!/usr/bin/env python3
+"""
+Scrape KeepTradeCut dynasty values (1QB + Superflex) and overwrite:
+  src/data/rankings.csv
+
+Designed to run locally or via GitHub Actions on a schedule.
+"""
+from __future__ import annotations
+
 import csv
-from datetime import datetime
+import sys
+from datetime import date, datetime
+
 import requests
 from bs4 import BeautifulSoup
 
-"""Scrape KeepTradeCut dynasty rankings (1QB + Superflex) and write to src/data/ktc.csv.
 
-Output is a simple CSV intended to be committed into the repo and consumed by the app.
-"""
+KTC_DYNASTY_URL = "https://keeptradecut.com/dynasty-rankings?page={page}&filters=QB|WR|RB|TE|RDP&format={fmt}"
+OUT_CSV = "src/data/rankings.csv"
 
-URL = "https://keeptradecut.com/dynasty-rankings?page={page}&filters=QB|WR|RB|TE|RDP&format={fmt}"
 
-def _parse_player_name_and_suffix(raw_name: str):
-    # KTC sometimes appends team / status suffixes like "RFA", "FA", "R<TEAM>", or "TEAM"
-    name = raw_name.strip()
-    suffix = ""
-    if len(name) >= 3 and name[-3:] == "RFA":
-        suffix = "RFA"
-    elif len(name) >= 2 and name[-2:] == "FA":
-        suffix = "FA"
-    elif len(name) >= 4 and name[-4] == "R":
-        # matches the original repo logic (a bit odd but keeps behavior similar)
-        suffix = name[-4:]
-    elif len(name) >= 3 and name[-3:].isupper():
-        suffix = name[-3:]
+def _team_suffix_from_name(name: str) -> str:
+    # Matches the original script's suffix cleanup logic.
+    if name.endswith("RFA"):
+        return name[-3:]
+    if len(name) >= 4 and name[-4] == "R":
+        return name[-4:]
+    if name.endswith("FA"):
+        return name[-2:]
+    if len(name) >= 3 and name[-3:].isupper():
+        return name[-3:]
+    return ""
 
-    cleaned = name.replace(suffix, "").strip()
-    return cleaned, suffix
 
-def scrape_ktc(pages: int = 10):
-    players = {}
+def scrape_ktc() -> list[dict]:
+    """
+    Returns a list of dicts containing both 1QB and SF values.
+    """
+    players: list[dict] = []
 
-    for fmt in (1, 0):  # 1QB then SF
-        for page in range(pages):
+    # format=1 -> 1QB, format=0 -> Superflex
+    for fmt in [1, 0]:
+        all_elements = []
+
+        # KTC seems to return ~50-ish per page; 10 pages usually covers all, but keep same as repo.
+        for page_num in range(10):
             resp = requests.get(
-                URL.format(page=page, fmt=fmt),
-                headers={
-                    "User-Agent": "Mozilla/5.0",
-                    "Accept-Language": "en-US,en;q=0.9",
-                },
+                KTC_DYNASTY_URL.format(page=page_num, fmt=fmt),
+                headers={"User-Agent": "Mozilla/5.0"},
                 timeout=30,
             )
             resp.raise_for_status()
-            soup = BeautifulSoup(resp.text, "html.parser")
-            for el in soup.find_all(class_="onePlayer"):
+            soup = BeautifulSoup(resp.content, "html.parser")
+            all_elements.extend(soup.find_all(class_="onePlayer"))
+
+        if fmt == 1:
+            # First pass: create base records with 1QB value
+            for el in all_elements:
                 name_el = el.find(class_="player-name")
-                posrank_el = el.find(class_="position")
+                pos_el = el.find(class_="position")
                 val_el = el.find(class_="value")
                 age_el = el.find(class_="position hidden-xs")
 
-                if not (name_el and posrank_el and val_el):
+                if not (name_el and pos_el and val_el):
                     continue
 
                 raw_name = name_el.get_text(strip=True)
-                name, suffix = _parse_player_name_and_suffix(raw_name)
+                suffix = _team_suffix_from_name(raw_name)
+                player_name = raw_name.replace(suffix, "").strip()
 
-                posrank = posrank_el.get_text(strip=True)
-                position = posrank[:2]
-                try:
-                    value = int(val_el.get_text(strip=True))
-                except Exception:
-                    continue
+                position_rank = pos_el.get_text(strip=True)
+                position = position_rank[:2]
+                value = int(val_el.get_text(strip=True))
 
-                age = ""
+                player_age = 0
                 if age_el:
-                    age_txt = age_el.get_text(strip=True)
-                    age = age_txt[:4].strip() if age_txt else ""
+                    age_text = age_el.get_text(strip=True)
+                    if age_text:
+                        try:
+                            player_age = float(age_text[:4])
+                        except Exception:
+                            player_age = 0
 
-                team = ""
-                rookie = ""
-                if suffix.startswith("R") and len(suffix) > 1:
+                # rookie vs team
+                if suffix[:1] == "R":
                     team = suffix[1:]
                     rookie = "Yes"
                 else:
                     team = suffix
-                    rookie = "No" if suffix else ""
+                    rookie = "No"
 
-                rec = players.get(name)
-                if not rec:
-                    rec = {
-                        "Player Name": name,
-                        "Position": position,
-                        "Team": team if position != "PI" else "",
-                        "Age": age if position != "PI" else "",
-                        "Rookie": rookie if position != "PI" else "",
-                        "1QB Position Rank": "",
-                        "1QB Value": "",
-                        "SF Position Rank": "",
-                        "SF Value": "",
-                    }
-                    players[name] = rec
-
-                if fmt == 1:
-                    rec["1QB Position Rank"] = posrank
-                    rec["1QB Value"] = value
+                if position == "PI":
+                    players.append(
+                        {
+                            "Player Name": player_name,
+                            "Position Rank": None,
+                            "Position": position,
+                            "Team": None,
+                            "Value": value,
+                            "Age": None,
+                            "Rookie": None,
+                            "SFPosition Rank": None,
+                            "SFValue": 0,
+                        }
+                    )
                 else:
-                    rec["SF Position Rank"] = posrank
-                    rec["SF Value"] = value
+                    players.append(
+                        {
+                            "Player Name": player_name,
+                            "Position Rank": position_rank,
+                            "Position": position,
+                            "Team": team,
+                            "Value": value,
+                            "Age": player_age,
+                            "Rookie": rookie,
+                            "SFPosition Rank": None,
+                            "SFValue": 0,
+                        }
+                    )
+        else:
+            # Second pass: fill SF values into existing records
+            for el in all_elements:
+                name_el = el.find(class_="player-name")
+                pos_el = el.find(class_="position")
+                val_el = el.find(class_="value")
 
-    def sort_key(rec):
-        sf = rec["SF Value"] if isinstance(rec["SF Value"], int) else -1
-        qb = rec["1QB Value"] if isinstance(rec["1QB Value"], int) else -1
-        return (sf, qb)
+                if not (name_el and pos_el and val_el):
+                    continue
 
-    return sorted(players.values(), key=sort_key, reverse=True)
+                raw_name = name_el.get_text(strip=True)
+                suffix = _team_suffix_from_name(raw_name)
+                player_name = raw_name.replace(suffix, "").strip()
 
-def export_to_csv(players, out_path: str):
-    updated = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    fieldnames = [
-        "Updated",
-        "Player Name",
+                sf_position_rank = pos_el.get_text(strip=True)
+                sf_position = sf_position_rank[:2]
+                sf_value = int(val_el.get_text(strip=True))
+
+                if sf_position == "PI":
+                    for pick in players:
+                        if pick["Player Name"] == player_name:
+                            pick["SFValue"] = sf_value
+                            break
+                else:
+                    for p in players:
+                        if p["Player Name"] == player_name:
+                            p["SFPosition Rank"] = sf_position_rank
+                            p["SFValue"] = sf_value
+                            break
+
+    return players
+
+
+def export_to_csv(players: list[dict], out_csv: str = OUT_CSV) -> None:
+    # Match your app's existing rankings.csv structure:
+    # header row with Updated..., then name, position ranks, position, team, values, age, rookie
+    header = [
+        f"Updated {date.today().strftime('%m/%d/%y')} at {datetime.now().strftime('%I:%M%p').lower()}",
+        "Position Rank",
         "Position",
         "Team",
+        "Value",
         "Age",
         "Rookie",
-        "1QB Position Rank",
-        "1QB Value",
-        "SF Position Rank",
-        "SF Value",
+        "SFPosition Rank",
+        "SFValue",
     ]
-    with open(out_path, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=fieldnames)
-        w.writeheader()
-        for p in players:
-            row = {"Updated": updated, **p}
-            w.writerow(row)
+
+    rows = [
+        [
+            p["Player Name"],
+            p["Position Rank"],
+            p["Position"],
+            p["Team"],
+            p["Value"],
+            p["Age"],
+            p["Rookie"],
+            p["SFPosition Rank"],
+            p["SFValue"],
+        ]
+        for p in players
+    ]
+    rows.insert(0, header)
+
+    os.makedirs(os.path.dirname(out_csv), exist_ok=True)  # type: ignore
+    with open(out_csv, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerows(rows)
+
+    print(f"Wrote {out_csv} ({len(rows)-1} rows).")
+
+
+def main() -> int:
+    players = scrape_ktc()
+    export_to_csv(players, OUT_CSV)
+    return 0
+
 
 if __name__ == "__main__":
-    players = scrape_ktc(pages=10)
-    export_to_csv(players, out_path="src/data/ktc.csv")
-    print("Wrote src/data/ktc.csv")
+    import os
+    raise SystemExit(main())
