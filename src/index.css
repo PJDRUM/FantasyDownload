@@ -1,0 +1,213 @@
+:root {
+  --top-links-bar-height: 50px;
+  --bg-0: #05070f;
+  --bg-1: #0b1020;
+
+  --surface-0: rgba(255, 255, 255, 0.04);
+  --surface-1: rgba(255, 255, 255, 0.07);
+
+  --border-0: rgba(255, 255, 255, 0.10);
+  --border-1: rgba(255, 255, 255, 0.18);
+
+  --text-0: rgba(255, 255, 255, 0.92);
+  --text-1: rgba(255, 255, 255, 0.70);
+  --text-2: rgba(255, 255, 255, 0.45);
+
+  --panel-bg: #2a2a2a;
+  --panel-bg-2: #303030;
+  --panel-bg-3: #363636;
+
+  --accent-green: #63aa56;
+  --accent-green-border: rgba(99, 170, 86, 0.85);
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Roboto", "Oxygen", "Ubuntu", "Cantarell",
+    "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+
+  color: var(--text-0);
+
+  background:
+    radial-gradient(800px 600px at 100% 0%, rgba(56, 189, 248, 0.06), transparent 60%),
+    radial-gradient(600px 500px at 0% 0%, rgba(56, 189, 248, 0.08), transparent 55%),
+    linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 100%);
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+}
+
+/* --- Top links bar (above everything) --- */
+.topLinksBar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  height: var(--top-links-bar-height);
+  background: #000;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.topLinksInner {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 18px;
+  padding: 0 22px;
+}
+
+.topLinksPrimary {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  flex-wrap: nowrap;
+}
+
+.topLinksPrimaryItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.92);
+  text-decoration: none;
+  font-size: 14px;
+  line-height: 1;
+  white-space: nowrap;
+  transition: color 140ms ease;
+}
+
+.topLinksPrimaryItem:hover {
+  color: var(--accent-green);
+}
+
+/* Instead of tinting (can turn transparent PNGs into squares), add a green glow */
+.topLinksIconImg {
+  width: 18px;
+  height: 18px;
+  display: inline-block;
+  object-fit: contain;
+  transition: filter 140ms ease;
+}
+
+.topLinksPrimaryItem:hover .topLinksIconImg {
+  filter:
+    drop-shadow(0 0 6px rgba(99, 170, 86, 0.65))
+    drop-shadow(0 0 1px rgba(99, 170, 86, 0.85));
+}
+
+.topLinksSocial {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.topLinksSocialItem {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  line-height: 0;
+  opacity: 0.92;
+  border-radius: 12px;
+  padding: 4px;              /* gives the hover shadow room to show */
+  position: relative;
+  transition: opacity 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.topLinksSocialItem:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow:
+    0 10px 20px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+
+.topLinksSocialIconImg {
+  width: 26px;
+  height: 26px;
+  display: inline-block;
+  object-fit: contain;
+  transition: filter 140ms ease;
+}
+
+/* optional extra "lift" on the icon itself */
+.topLinksSocialItem:hover .topLinksSocialIconImg {
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.55));
+}
+
+
+/* --- Responsive app layout --- */
+.appViewport {
+  /* Use dynamic viewport units where supported (mobile browser chrome safe) */
+  height: calc(100dvh - var(--top-links-bar-height));
+  height: calc(100vh - var(--top-links-bar-height));
+  padding: 0 clamp(8px, 2.2vw, 16px) clamp(8px, 2.2vw, 16px);
+  box-sizing: border-box;
+}
+
+.appHeaderWrap {
+  margin-left: calc(-1 * clamp(8px, 2.2vw, 16px));
+  margin-right: calc(-1 * clamp(8px, 2.2vw, 16px));
+}
+
+.appMainGrid {
+  display: grid;
+  grid-template-areas: "list board";
+  grid-template-columns: minmax(320px, 520px) minmax(0, 1fr);
+  grid-template-rows: 1fr;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+  justify-content: center;
+  align-items: stretch;
+}
+
+.appPanel {
+  border: 1px solid var(--border-0);
+  background: var(--panel-bg);
+  border-radius: 12px;
+  padding: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.appPanel--list { grid-area: list; }
+.appPanel--board { grid-area: board; }
+
+.boardScroll {
+  /* Allow the draft board/rankings board to overflow on smaller screens */
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px; /* room for focus rings/shadows */
+}
+
+/* Tablet + smaller: stack panels and let them fill the width */
+@media (max-width: 1100px) {
+  .appMainGrid {
+    grid-template-areas:
+      "board"
+      "list";
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(320px, 1fr) auto;
+    justify-content: stretch;
+  }
+}
+
+/* Small screens: tighten spacing a bit */
+@media (max-width: 600px) {
+  :root { --top-links-bar-height: 44px; }
+  .appMainGrid { gap: 10px; }
+  .appPanel { padding: 6px; border-radius: 10px; }
+}
+
