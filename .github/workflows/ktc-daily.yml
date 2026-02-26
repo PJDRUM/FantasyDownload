@@ -26,11 +26,12 @@ jobs:
       - name: Run scraper
         run: |
           python scripts/ktc_scrape.py
-
+- name: Update KTC_LAST_UPDATED
+  run: node update-ktc-last-updated.mjs
       - name: Commit changes (if any)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add src/data/rankings.csv
+          git add src/data/rankings.csv src/data/rankings.ts
           git diff --staged --quiet || git commit -m "Update KTC rankings"
           git push
