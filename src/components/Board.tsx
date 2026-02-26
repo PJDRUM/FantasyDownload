@@ -20,6 +20,9 @@ const BOARD_BG_URL = `${process.env.PUBLIC_URL || ""}/bg.jpg`;
 export default function Board(props: {
   favoriteIds: Set<string>;
 
+  // Only the user Rankings list should be reorderable. KTC is static.
+  allowRankingsReorder: boolean;
+
   boardTab: BoardTab;
   setBoardTab: (t: BoardTab) => void;
 
@@ -64,6 +67,7 @@ export default function Board(props: {
 }) {
   const {
     favoriteIds,
+    allowRankingsReorder,
     boardTab,
     setBoardTab,
     rounds,
@@ -604,7 +608,7 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
 
         {boardTab === "Rankings Board" ? (
           <div ref={tableSizeRef}>
-            <DndContext sensors={sensors} onDragEnd={onBoardDragEnd}>
+            <DndContext sensors={allowRankingsReorder ? sensors : undefined} onDragEnd={allowRankingsReorder ? onBoardDragEnd : undefined}>
               <SortableContext items={rankingIds} strategy={horizontalListSortingStrategy}>
                 {Array.from({ length: rounds }).map((_, roundIndex) => {
                   const reverse = isReverseRound(roundIndex, draftStyle);
@@ -652,7 +656,7 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                               showDraftedBanner={true}
                               onToggleDrafted={onToggleDrafted}
                               bg={posColor(player.position)}
-                              sortable={true}
+                              sortable={allowRankingsReorder}
                             >
                               <CellContent
                                 label={label}

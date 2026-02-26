@@ -19,6 +19,9 @@ export type Player = {
   /** Player age (optional; provided via import/export). */
   age?: number;
 
+  /** KTC 1QB value (optional; provided via import). */
+  value?: number;
+
   /** KTC Superflex value (optional; provided via import). */
   sfValue?: number;
 

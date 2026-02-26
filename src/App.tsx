@@ -41,6 +41,9 @@ export default function App() {
   // ----- fixed rankings lists -----
   const [rankingsListKey, setRankingsListKey] = useState<RankingsListKey>("Rankings");
 
+  const [ktcValueMode, setKtcValueMode] = useState<"1qb" | "2qb">("2qb");
+  const [ktcRankingIdsByMode, setKtcRankingIdsByMode] = useState<{ "1qb": string[]; "2qb": string[] }>({ "1qb": [], "2qb": [] });
+
   const [rankingIdsByList, setRankingIdsByList] = useState<Record<RankingsListKey, string[]>>(() => ({
     Rankings: [...initialRankingIds],
     KTC: [...initialRankingIds],
@@ -52,15 +55,24 @@ export default function App() {
   }));
 
 
-  // Load KTC rankings from src/data/rankings.csv (sorted by SFValue desc)
+  // Load KTC rankings from src/data/rankings.csv (supports 1QB "Value" + 2QB "SFValue")
   useEffect(() => {
     fetch(rankingsCsvUrl)
       .then((r) => r.text())
       .then((csvText) => {
-        const parsedKTC = importRankingsCsv({ csvText, sortBy: "sfvalue" });
-        if (parsedKTC.rankingIds.length) {
-          setKtcPlayers(parsedKTC.players);
-          setRankingIdsByList((prev) => ({ ...prev, KTC: parsedKTC.rankingIds }));
+        const parsed1qb = importRankingsCsv({ csvText, sortBy: "value" });
+        const parsed2qb = importRankingsCsv({ csvText, sortBy: "sfvalue" });
+
+        const players = (parsed2qb.players.length ? parsed2qb.players : parsed1qb.players) ?? [];
+        setKtcPlayers(players);
+
+        const ids1 = parsed1qb.rankingIds ?? [];
+        const ids2 = parsed2qb.rankingIds ?? [];
+        setKtcRankingIdsByMode({ "1qb": ids1, "2qb": ids2 });
+
+        const chosen = ktcValueMode === "1qb" ? ids1 : ids2;
+        if (chosen.length) {
+          setRankingIdsByList((prev) => ({ ...prev, KTC: chosen }));
           setTiersByPosByList((prev) => ({ ...prev, KTC: emptyTiersByPos() }));
         }
       })
@@ -68,6 +80,14 @@ export default function App() {
         // ignore
       });
   }, []);
+
+  // Re-apply KTC ordering when switching between 1QB/2QB.
+  useEffect(() => {
+    const ids = ktcValueMode === "1qb" ? ktcRankingIdsByMode["1qb"] : ktcRankingIdsByMode["2qb"];
+    if (ids && ids.length) {
+      setRankingIdsByList((prev) => ({ ...prev, KTC: ids }));
+    }
+  }, [ktcValueMode, ktcRankingIdsByMode]);
   const rankingIds = rankingIdsByList[rankingsListKey];
   const tiersByPos = tiersByPosByList[rankingsListKey];
 
@@ -381,17 +401,19 @@ export default function App() {
         const buf = reader.result as ArrayBuffer;
         const parsed = importRankingsXlsx({ xlsxArrayBuffer: buf });
 
-        // Apply per-sheet (if a sheet is missing, keep current state)
-        setRankingIdsByList((prev) => ({ ...prev, ...parsed.rankingIdsByList }));
+        // Apply import ONLY to the user-editable Rankings tab (KTC is sourced from rankings.csv)
+        if (parsed.rankingIdsByList.Rankings) {
+          setRankingIdsByList((prev) => ({ ...prev, Rankings: parsed.rankingIdsByList.Rankings! }));
+        }
 
         setTiersByPosByList((prev) => {
           const next = { ...prev };
-          for (const k of RANKINGS_LIST_KEYS) {
+          for (const k of ["Rankings"] as const) {
             const v = parsed.tiersByPosByList[k];
             if (v !== undefined) next[k] = v;
           }
           // Normalize against current playersById + ids in each sheet
-          for (const k of RANKINGS_LIST_KEYS) {
+          for (const k of ["Rankings"] as const) {
             const ids = (parsed.rankingIdsByList[k] ?? rankingIdsByList[k]) ?? [];
             next[k] = {
               QB: normalizeTierBreaks("QB", next[k].QB ?? [], ids),
@@ -408,7 +430,7 @@ export default function App() {
         // extra players / overrides
         // NOTE: We store imported player rows into extraPlayers *even if the player exists in basePlayersArr*.
         // This allows imports to override optional fields like risk/upside/adp without mutating the bundled base data.
-        const baseById = new Map(basePlayersArr.map((p) => [p.id, p]));
+        const baseById = new Map(basePlayers.map((p) => [p.id, p]));
 
         setExtraPlayers((prev) => {
           const prevById = new Map(prev.map((p) => [p.id, p]));
@@ -416,15 +438,30 @@ export default function App() {
           for (const imp of parsed.players) {
             const base = baseById.get(imp.id);
 
+            // Do NOT let an import for the editable Rankings list wipe out KTC-only fields (e.g. sfValue)
+            // that were loaded from rankings.csv.
+            const { sfValue: _sfValue, ...impNoKtc } = imp as any;
+
             if (base) {
-              // Preserve base imageUrl if the import omits it.
-              const merged = { ...base, ...imp, imageUrl: imp.imageUrl || base.imageUrl };
+              const existing = prevById.get(imp.id);
+              // Merge order:
+              // base (includes KTC overlay if present) -> existing extra overrides -> imported fields
+              const merged = {
+                ...base,
+                ...(existing ?? {}),
+                ...impNoKtc,
+                imageUrl:
+                  (impNoKtc as any).imageUrl ||
+                  (existing as any)?.imageUrl ||
+                  (base as any).imageUrl ||
+                  "",
+              };
               prevById.set(imp.id, merged);
               continue;
             }
 
             const existing = prevById.get(imp.id);
-            prevById.set(imp.id, existing ? { ...existing, ...imp } : imp);
+            prevById.set(imp.id, existing ? { ...existing, ...impNoKtc } : (impNoKtc as any));
           }
 
           return Array.from(prevById.values());
@@ -515,6 +552,8 @@ export default function App() {
               setActiveTab={setActiveTab}
               getColor={posColor}
               onMove={moveRankings}
+              ktcValueMode={ktcValueMode}
+              onChangeKtcValueMode={setKtcValueMode}
             />
           </div>
 
@@ -530,6 +569,7 @@ export default function App() {
             <div className="boardScroll">
 
               <Board
+              allowRankingsReorder={rankingsListKey === "Rankings"}
               favoriteIds={favoriteIds}
               boardTab={boardTab}
               setBoardTab={setBoardTab}

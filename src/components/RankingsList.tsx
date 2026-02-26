@@ -55,6 +55,10 @@ export default function RankingsList(props: {
   onMove?: (fromIndex: number, toIndex: number) => void;
 
   getColor: (pos: Position) => string;
+
+  // KTC value display mode
+  ktcValueMode?: "1qb" | "2qb";
+  onChangeKtcValueMode?: (m: "1qb" | "2qb") => void;
 }) {
   const {
     rankingsListKey,
@@ -69,10 +73,11 @@ export default function RankingsList(props: {
     activeTab,
     setActiveTab,
     getColor,
+    ktcValueMode = "2qb",
+    onChangeKtcValueMode,
   } = props;
 
   const [profilePlayerId, setProfilePlayerId] = useState<string | null>(null);
-
 
   const hideRankColumn = false;
 
@@ -240,6 +245,13 @@ export default function RankingsList(props: {
   const accentGreen = "rgb(34, 197, 94)";
   const tierAccent = currentScope === "OVERALL" ? accentGreen : posColor(currentScope as Position);
 
+  const ktcUpdated = useMemo(() => {
+    const raw = String(KTC_LAST_UPDATED ?? "").trim();
+    const parts = raw.split(/\s+/);
+    if (parts.length <= 1) return { raw, date: raw, time: "" };
+    return { raw, date: parts[0], time: parts.slice(1).join(" ") };
+  }, []);
+
   // Selected-tab style: neutral translucent overlay (no green)
   const selectedPillBg = "rgba(255,255,255,0.14)";
   const selectedPillBorder = "1px solid rgba(255,255,255,0.16)";
@@ -298,37 +310,35 @@ export default function RankingsList(props: {
             const active = k === rankingsListKey;
             const label = k; // keys are now "Rankings" | "KTC"
             return k === "KTC" ? (
-              <span style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+              <span key={k} style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
                 <button
-                key={k}
-                onClick={() =>
-               setRankingsListKey(k)}
-                aria-label={label}
-                title={label}
-                style={{
-                  border: active ? selectedPillBorder : "none",
-                  borderRadius: 999,
-                  padding: "10px 14px",
-                  fontWeight: 900,
-                  fontSize: 13,
-                  cursor: "pointer",
-                  background: active ? selectedPillBg : "transparent",
-                  color: active ? "var(--text-0)" : "var(--text-1)",
-                  whiteSpace: "nowrap",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  lineHeight: 1,
-                  boxShadow: active ? selectedPillShadow : "none",
-                }}
-              >
-                {label}
-              </button>
+                  onClick={() => setRankingsListKey(k)}
+                  aria-label={label}
+                  title={label}
+                  style={{
+                    border: active ? selectedPillBorder : "none",
+                    borderRadius: 999,
+                    padding: "10px 14px",
+                    fontWeight: 900,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    background: active ? selectedPillBg : "transparent",
+                    color: active ? "var(--text-0)" : "var(--text-1)",
+                    whiteSpace: "nowrap",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    lineHeight: 1,
+                    boxShadow: active ? selectedPillShadow : "none",
+                  }}
+                >
+                  {label}
+                </button>
                 {active && (
                   <span
-                    aria-label={`Updated: ${KTC_LAST_UPDATED}`}
-                    title={`Updated: ${KTC_LAST_UPDATED}`}
+                    aria-label={`Updated: ${ktcUpdated.raw}`}
+                    title={`Updated: ${ktcUpdated.raw}`}
                     style={{
                       position: "absolute",
                       left: "calc(100% + 8px)",
@@ -347,15 +357,15 @@ export default function RankingsList(props: {
                     }}
                   >
                     <span>Updated:</span>
-                    <span>{KTC_LAST_UPDATED}</span>
+                    <span>{ktcUpdated.date}</span>
+                    {ktcUpdated.time && <span>{ktcUpdated.time}</span>}
                   </span>
                 )}
               </span>
             ) : (
               <button
                 key={k}
-                onClick={() =>
-               setRankingsListKey(k)}
+                onClick={() => setRankingsListKey(k)}
                 aria-label={label}
                 title={label}
                 style={{
@@ -378,7 +388,8 @@ export default function RankingsList(props: {
               >
                 {label}
               </button>
-            );})}
+            );
+          })}
         </div>
 
         {/* Position tabs */}
@@ -633,7 +644,62 @@ export default function RankingsList(props: {
           >
             <div>{hideRankColumn ? "\u00A0" : "#"}</div>
             <div>Player</div>
-            <div style={{ textAlign: "center" }}>{rankingsListKey === "KTC" ? "Value" : "ADP"}</div>
+
+            {/* ADP / Value header (KTC toggle moved ABOVE the "Value" label) */}
+            <div style={{ textAlign: "center" }}>
+              {rankingsListKey !== "KTC" ? (
+                "ADP"
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                  {onChangeKtcValueMode && (
+                    <div
+                      role="group"
+                      aria-label="KTC value mode"
+                      style={{
+                        display: "inline-flex",
+                        gap: 0,
+                        border: "1px solid rgba(255,255,255,0.18)",
+                        borderRadius: 999,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => onChangeKtcValueMode("1qb")}
+                        style={{
+                          padding: "2px 8px",
+                          fontSize: 11,
+                          lineHeight: "16px",
+                          cursor: "pointer",
+                          border: "none",
+                          color: "rgba(255,255,255,0.9)",
+                          background: ktcValueMode === "1qb" ? "rgba(255,255,255,0.16)" : "transparent",
+                        }}
+                      >
+                        1QB
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onChangeKtcValueMode("2qb")}
+                        style={{
+                          padding: "2px 8px",
+                          fontSize: 11,
+                          lineHeight: "16px",
+                          cursor: "pointer",
+                          border: "none",
+                          color: "rgba(255,255,255,0.9)",
+                          background: ktcValueMode === "2qb" ? "rgba(255,255,255,0.16)" : "transparent",
+                        }}
+                      >
+                        2QB
+                      </button>
+                    </div>
+                  )}
+                  <span>Value</span>
+                </div>
+              )}
+            </div>
+
             {showRisk && <div style={{ textAlign: "center" }}>Risk</div>}
             {showUpside && <div style={{ textAlign: "center" }}>Upside</div>}
           </div>
@@ -660,7 +726,7 @@ export default function RankingsList(props: {
 
             const isHi = highlightId === id;
 
-            const adpOrValue = rankingsListKey === "KTC" ? (p as any).sfValue : p.adp;
+            const adpOrValue = rankingsListKey === "KTC" ? (ktcValueMode === "1qb" ? (p as any).value : (p as any).sfValue) : p.adp;
             const riskRaw = getRiskRaw(p);
             const upsideRaw = getUpsideRaw(p);
 
@@ -811,27 +877,27 @@ export default function RankingsList(props: {
                             }}
                           >
                             {ENABLE_PLAYER_PROFILES_ON_RANKINGS_LIST ? (
-                            <button
-                              type="button"
-                              onClick={() => setProfilePlayerId(p.id)}
-                              style={{
-                                minWidth: 0,
-                                padding: 0,
-                                margin: 0,
-                                border: "none",
-                                background: "transparent",
-                                color: "inherit",
-                                cursor: "pointer",
-                                textAlign: "left",
-                                font: "inherit"
-                              }}
-                              title={`Open ${p.name} profile`}
-                            >
-                              {p.name}
-                            </button>
-                          ) : (
-                            <span>{p.name}</span>
-                          )}
+                              <button
+                                type="button"
+                                onClick={() => setProfilePlayerId(p.id)}
+                                style={{
+                                  minWidth: 0,
+                                  padding: 0,
+                                  margin: 0,
+                                  border: "none",
+                                  background: "transparent",
+                                  color: "inherit",
+                                  cursor: "pointer",
+                                  textAlign: "left",
+                                  font: "inherit",
+                                }}
+                                title={`Open ${p.name} profile`}
+                              >
+                                {p.name}
+                              </button>
+                            ) : (
+                              <span>{p.name}</span>
+                            )}
                           </div>
                           <div
                             style={{
@@ -874,7 +940,11 @@ export default function RankingsList(props: {
                           color: "rgba(255,255,255,0.78)",
                         }}
                       >
-                        {typeof adpOrValue === "number" ? (rankingsListKey === "KTC" ? Math.round(adpOrValue).toLocaleString() : adpOrValue.toFixed(1)) : "—"}
+                        {typeof adpOrValue === "number"
+                          ? rankingsListKey === "KTC"
+                            ? Math.round(adpOrValue).toLocaleString()
+                            : adpOrValue.toFixed(1)
+                          : "—"}
                       </div>
 
                       {showRisk && (
@@ -918,7 +988,7 @@ export default function RankingsList(props: {
           })}
         </div>
       </div>
-    
+
       {ENABLE_PLAYER_PROFILES_ON_RANKINGS_LIST && profilePlayerId && playersById[profilePlayerId] && (
         <PlayerProfileModal
           player={playersById[profilePlayerId]}
@@ -926,7 +996,6 @@ export default function RankingsList(props: {
           onClose={() => setProfilePlayerId(null)}
         />
       )}
-
     </div>
   );
 }
