@@ -19,6 +19,9 @@ export type Player = {
   /** Player age (optional; provided via import/export). */
   age?: number;
 
+  /** KTC Superflex value (optional; provided via import). */
+  sfValue?: number;
+
   /**
    * Optional metrics that may be provided via import (e.g., XLSX template).
    * Convention: 1–10 (decimals allowed). Import/export is lenient and will also accept 0–100 or 0–1 and normalize.

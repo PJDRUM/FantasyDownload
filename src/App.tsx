@@ -1,6 +1,7 @@
 // src/App.tsx
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { players as basePlayersArr, rankingIds as initialRankingIds } from "./data/rankings";
+import rankingsCsvUrl from "./data/rankings.csv";
 import type { Position, Player } from "./models/Player";
 
 import RankingsList from "./components/RankingsList";
@@ -16,6 +17,7 @@ import {
   emptyTiersByPos,
   exportRankingsXlsx,
   importRankingsXlsx,
+  importRankingsCsv,
   RANKINGS_LIST_KEYS,
   type RankingsListKey,
   type TiersByPos,
@@ -41,14 +43,31 @@ export default function App() {
 
   const [rankingIdsByList, setRankingIdsByList] = useState<Record<RankingsListKey, string[]>>(() => ({
     Rankings: [...initialRankingIds],
-    ADP: [...initialRankingIds],
+    KTC: [...initialRankingIds],
   }));
 
   const [tiersByPosByList, setTiersByPosByList] = useState<Record<RankingsListKey, TiersByPos>>(() => ({
     Rankings: emptyTiersByPos(),
-    ADP: emptyTiersByPos(),
+    KTC: emptyTiersByPos(),
   }));
 
+
+  // Load KTC rankings from src/data/rankings.csv (sorted by SFValue desc)
+  useEffect(() => {
+    fetch(rankingsCsvUrl)
+      .then((r) => r.text())
+      .then((csvText) => {
+        const parsedKTC = importRankingsCsv({ csvText, sortBy: "sfvalue" });
+        if (parsedKTC.rankingIds.length) {
+          setKtcPlayers(parsedKTC.players);
+          setRankingIdsByList((prev) => ({ ...prev, KTC: parsedKTC.rankingIds }));
+          setTiersByPosByList((prev) => ({ ...prev, KTC: emptyTiersByPos() }));
+        }
+      })
+      .catch(() => {
+        // ignore
+      });
+  }, []);
   const rankingIds = rankingIdsByList[rankingsListKey];
   const tiersByPos = tiersByPosByList[rankingsListKey];
 
@@ -59,7 +78,7 @@ export default function App() {
     });
   }
 
-  // Board should reflect the active RankingsList tab (Rankings vs ADP)
+  // Board should reflect the active RankingsList tab (Rankings vs KTC)
   const boardRankingIds = rankingIdsByList[rankingsListKey];
   const boardTiersByPos = tiersByPosByList[rankingsListKey];
 
@@ -109,9 +128,12 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<"Overall" | Position>("Overall");
   const [boardTab, setBoardTab] = useState<BoardTab>("Rankings Board");
 
-  // ----- players (base + imported extras) -----
+  // ----- players (base + KTC overrides + imported extras) -----
+  const [ktcPlayers, setKtcPlayers] = useState<Player[]>([]);
+  const basePlayers = useMemo(() => [...basePlayersArr, ...ktcPlayers], [ktcPlayers]);
+
   const { extraPlayers, setExtraPlayers, allPlayersArr: allPlayers, playersById } = usePlayers({
-    basePlayers: basePlayersArr,
+    basePlayers,
   });
 
   const addPlayerToRankings = useCallback(
@@ -136,7 +158,7 @@ export default function App() {
 
       setRankingIdsByList((prev) => ({
         Rankings: [id, ...prev.Rankings.filter((x) => x !== id)],
-        ADP: [id, ...prev.ADP.filter((x) => x !== id)],
+        KTC: [id, ...prev.KTC.filter((x) => x !== id)],
       }));
     },
     [setExtraPlayers, setRankingIdsByList]

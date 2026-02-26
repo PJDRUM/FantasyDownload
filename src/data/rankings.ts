@@ -1151,5 +1151,5 @@ export const rankingIds: string[] = [
 "max-brosmer",
 ];
 
-// Manually update this date when ADP data is refreshed.
-export const ADP_LAST_UPDATED = "02/24/26";
+// Manually update this when KTC data is refreshed (derived from src/data/rankings.csv header row).
+export const KTC_LAST_UPDATED = "02/25/26 04:26pm";

@@ -59,13 +59,13 @@ export function useRankingsIO(args: {
         .text()
         .then((csvText) => {
           const parsedRankings = importRankingsCsv({ csvText, sortBy: "rank" });
-          const parsedADP = importRankingsCsv({ csvText, sortBy: "adp" });
+          const parsedKTC = importRankingsCsv({ csvText, sortBy: "sfvalue" });
 
           setRankingIdsByList((prev) =>
             ({
               ...prev,
               Rankings: parsedRankings.rankingIds,
-              ...(parsedADP.hasAnyAdp ? { ADP: parsedADP.rankingIds } : {}),
+              ...(parsedKTC.hasAnySfValue ? { KTC: parsedKTC.rankingIds } : {}),
             } as RankingsListsState<string[]>)
           );
 
@@ -73,7 +73,7 @@ export function useRankingsIO(args: {
             ({
               ...prev,
               Rankings: parsedRankings.tiersByPos,
-              ...(parsedADP.hasAnyAdp ? { ADP: parsedADP.tiersByPos } : {}),
+              ...(parsedKTC.hasAnySfValue ? { KTC: parsedKTC.tiersByPos } : {}),
             } as RankingsListsState<TiersByPos>)
           );
 
@@ -82,7 +82,7 @@ export function useRankingsIO(args: {
           setExtraPlayers((prev) => {
             const prevById = new Map(prev.map((p) => [p.id, p]));
 
-            for (const imp of [...parsedRankings.players, ...parsedADP.players]) {
+            for (const imp of [...parsedRankings.players, ...parsedKTC.players]) {
               const base = baseById.get(imp.id);
               if (base) {
                 const merged = { ...base, ...imp, imageUrl: imp.imageUrl || base.imageUrl };

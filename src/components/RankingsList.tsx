@@ -11,7 +11,7 @@ import { StarIcon, type FavoriteStarStyle } from "./Rankings/StarIcon";
 import { score10ToPct } from "./Rankings/RiskUpside";
 import PlayerProfileModal from "./PlayerProfileModal";
 import { playerProfilesById } from "../data/playerProfiles";
-import { ADP_LAST_UPDATED } from "../data/rankings";
+import { KTC_LAST_UPDATED } from "../data/rankings";
 const ENABLE_PLAYER_PROFILES_ON_RANKINGS_LIST = false; // Toggle to temporarily disable PlayerProfiles on the Rankings list.
 
 type Tab = "Overall" | Position;
@@ -74,10 +74,10 @@ export default function RankingsList(props: {
   const [profilePlayerId, setProfilePlayerId] = useState<string | null>(null);
 
 
-  const hideRankColumn = rankingsListKey === "ADP";
+  const hideRankColumn = false;
 
-  // ADP tab should have NO tier overlays.
-  const showTiers = rankingsListKey !== "ADP" && activeTab !== "Overall";
+  // Only the Rankings tab has tier overlays.
+  const showTiers = rankingsListKey === "Rankings" && activeTab !== "Overall";
 
   /**
    * Only show Risk/Upside columns if the import actually contains *meaningful* values.
@@ -246,7 +246,7 @@ export default function RankingsList(props: {
   const selectedPillShadow = "inset 0 0 0 1px rgba(0,0,0,0.18)";
 
   const gridCols = useMemo(() => {
-    const cols: string[] = ["28px", "minmax(0, 3fr)", "minmax(36px, 0.8fr)"]; // #, Player, ADP
+    const cols: string[] = ["28px", "minmax(0, 3fr)", "minmax(36px, 0.8fr)"]; // #, Player, ADP/Value
     if (showRisk) cols.push("minmax(54px, 1fr)");
     if (showUpside) cols.push("minmax(54px, 1fr)");
     return cols.join(" ");
@@ -296,8 +296,8 @@ export default function RankingsList(props: {
         >
           {RANKINGS_LIST_KEYS.map((k) => {
             const active = k === rankingsListKey;
-            const label = k; // keys are now "Rankings" | "ADP"
-            return k === "ADP" ? (
+            const label = k; // keys are now "Rankings" | "KTC"
+            return k === "KTC" ? (
               <span style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
                 <button
                 key={k}
@@ -327,8 +327,8 @@ export default function RankingsList(props: {
               </button>
                 {active && (
                   <span
-                    aria-label={`Updated: ${ADP_LAST_UPDATED}`}
-                    title={`Updated: ${ADP_LAST_UPDATED}`}
+                    aria-label={`Updated: ${KTC_LAST_UPDATED}`}
+                    title={`Updated: ${KTC_LAST_UPDATED}`}
                     style={{
                       position: "absolute",
                       left: "calc(100% + 8px)",
@@ -347,7 +347,7 @@ export default function RankingsList(props: {
                     }}
                   >
                     <span>Updated:</span>
-                    <span>{ADP_LAST_UPDATED}</span>
+                    <span>{KTC_LAST_UPDATED}</span>
                   </span>
                 )}
               </span>
@@ -633,7 +633,7 @@ export default function RankingsList(props: {
           >
             <div>{hideRankColumn ? "\u00A0" : "#"}</div>
             <div>Player</div>
-            <div style={{ textAlign: "center" }}>ADP</div>
+            <div style={{ textAlign: "center" }}>{rankingsListKey === "KTC" ? "Value" : "ADP"}</div>
             {showRisk && <div style={{ textAlign: "center" }}>Risk</div>}
             {showUpside && <div style={{ textAlign: "center" }}>Upside</div>}
           </div>
@@ -660,7 +660,7 @@ export default function RankingsList(props: {
 
             const isHi = highlightId === id;
 
-            const adp = p.adp;
+            const adpOrValue = rankingsListKey === "KTC" ? (p as any).sfValue : p.adp;
             const riskRaw = getRiskRaw(p);
             const upsideRaw = getUpsideRaw(p);
 
@@ -874,7 +874,7 @@ export default function RankingsList(props: {
                           color: "rgba(255,255,255,0.78)",
                         }}
                       >
-                        {typeof adp === "number" ? adp.toFixed(1) : "—"}
+                        {typeof adpOrValue === "number" ? (rankingsListKey === "KTC" ? Math.round(adpOrValue).toLocaleString() : adpOrValue.toFixed(1)) : "—"}
                       </div>
 
                       {showRisk && (

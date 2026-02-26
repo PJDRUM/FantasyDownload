@@ -1,5 +1,3 @@
-/// <reference types="react-scripts" />
-
 declare module "*.csv" {
   const url: string;
   export default url;

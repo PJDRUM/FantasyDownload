@@ -6,7 +6,7 @@ export type TiersByPos = Record<Position, string[]>;
 // tiersByPos[pos] = ordered list of playerIds that START a new tier (Tier 2+), within that position ranking order.
 
 // List tabs (and XLSX sheet name for the primary rankings sheet).
-export const RANKINGS_LIST_KEYS = ["Rankings", "ADP"] as const;
+export const RANKINGS_LIST_KEYS = ["Rankings", "KTC"] as const;
 export type RankingsListKey = (typeof RANKINGS_LIST_KEYS)[number];
 
 export function emptyTiersByPos(): TiersByPos {
@@ -201,20 +201,80 @@ export function importRankingsCsv(
     csvText: string;
     // Sorting strategy for the imported overall list.
     // - "rank": use the rank column if present (default; keeps Rankings behavior)
-    // - "adp": sort by ADP ascending if present (used for the ADP sheet)
+    // - "adp": sort by ADP ascending if present
+    // - "sfvalue": sort by SFValue descending if present (used for KTC)
     // - "none": preserve file/row order
-    sortBy?: "rank" | "adp" | "none";
+    sortBy?: "rank" | "adp" | "sfvalue" | "none";
   }
 ): {
   rankingIds: string[];
   tiersByPos: TiersByPos;  players: Player[];
   hasAnyAdp: boolean;
+  hasAnySfValue: boolean;
 } {
   const { csvText, sortBy = "rank" } = args;
 
-  const rows = parseCsv(csvText);
+  const rowsRaw = parseCsv(csvText);
+
+  // Some sources (notably KTC) put the "Updated ..." metadata *in the first header cell*,
+  // while the rest of that row is the actual header, e.g.:
+  // "Updated 02/25/26 at 04:26pm,Position Rank,Position,Team,Value,Age,...,SFValue"
+  //
+  // In that case we should treat row[0] as the header row (but rename the first column to "Name"),
+  // rather than dropping it (which would incorrectly treat the first player row as the header).
+  const rows = (() => {
+    if (rowsRaw.length === 0) return rowsRaw;
+
+    const firstCell = cleanStr(rowsRaw[0]?.[0]).toLowerCase();
+    const row0 = rowsRaw[0] ?? [];
+
+    const looksLikeHeader = (() => {
+      const normalized = row0.map((c) => cleanStr(c).toLowerCase());
+      const headerHints = new Set([
+        "name",
+        "player",
+        "rank",
+        "#",
+        "overall",
+        "position",
+        "pos",
+        "team",
+        "value",
+        "sfvalue",
+        "sf value",
+        "superflex value",
+        "adp",
+        "age",
+        "tier",
+        "position rank",
+        "sfposition rank",
+        "sfposition",
+        "rookie",
+      ]);
+      let hits = 0;
+      for (const h of normalized.slice(1)) {
+        if (headerHints.has(h)) hits++;
+      }
+      return hits >= 2;
+    })();
+
+    if (firstCell.startsWith("updated") && looksLikeHeader) {
+      // Mutate a copy so we don't touch the parseCsv cache (if any).
+      const headerRow = [...row0];
+      headerRow[0] = "Name";
+      return [headerRow, ...rowsRaw.slice(1)];
+    }
+
+    // Alternate format: a pure metadata row followed by a normal header row.
+    if (rowsRaw.length >= 2 && firstCell.startsWith("updated")) {
+      return rowsRaw.slice(1);
+    }
+
+    return rowsRaw;
+  })();
+
   if (rows.length === 0) {
-    return { rankingIds: [], tiersByPos: emptyTiersByPos(), players: [], hasAnyAdp: false };
+    return { rankingIds: [], tiersByPos: emptyTiersByPos(), players: [], hasAnyAdp: false, hasAnySfValue: false };
   }
 
   const header = rows[0].map((h) => cleanStr(h).toLowerCase());
@@ -247,6 +307,7 @@ export function importRankingsCsv(
       h === "average draft" ||
       h === "avg draft position"
   );
+  const idxSfValue = header.findIndex((h) => h === "sfvalue" || h === "sf value" || h === "superflex value" || h === "sf_value");
   const idxTier = header.findIndex((h) => h === "tier" || h === "pos_tier" || h === "postier" || h === "position_tier" || h === "position tier" || h === "pos tier");  const idxRisk = header.findIndex((h) => h === "risk" || h === "risk_score" || h === "risk score" || h === "riskscore");
   const idxUpside = header.findIndex((h) => h === "upside" || h === "upside_score" || h === "upside score" || h === "upsidescore");
 
@@ -312,6 +373,18 @@ export function importRankingsCsv(
     return n;
   }
 
+  function parseSfValue(raw: unknown): number | undefined {
+    // KTC exports use large integer-like values, but we accept any finite number.
+    let s = cleanStr(raw);
+    if (!s) return undefined;
+    if (/^(?:-|—|n\/a|na|null|undefined)$/i.test(s.trim())) return undefined;
+    s = s.replace(/,/g, "").replace(/[^0-9.]/g, "").trim();
+    if (!s) return undefined;
+    const n = Number(s);
+    if (!Number.isFinite(n)) return undefined;
+    return n;
+  }
+
   function parseScore(raw: unknown): number | undefined {
     let s = cleanStr(raw);
     if (!s) return undefined;
@@ -347,6 +420,7 @@ export function importRankingsCsv(
   const rankingIdsRaw: string[] = [];
   const rankByIdFromFile: Record<string, number> = {};
   const adpByIdFromFile: Record<string, number> = {};
+  const sfValueByIdFromFile: Record<string, number> = {};
   const firstSeenIndexById: Record<string, number> = {};
 
   const posTierByIdFromFile: Record<string, number> = {};  const playersById: Record<string, Player> = {};
@@ -382,6 +456,7 @@ export function importRankingsCsv(
     const risk = idxRisk >= 0 ? parseScore(r[idxRisk]) : undefined;
     const upside = idxUpside >= 0 ? parseScore(r[idxUpside]) : undefined;
     const adp = idxAdp >= 0 ? parseAdp(r[idxAdp]) : undefined;
+    const sfValue = idxSfValue >= 0 ? parseSfValue(r[idxSfValue]) : undefined;
     const team = idxTeam >= 0 ? cleanStr(r[idxTeam]) : "";
     const age = idxAge >= 0 ? parseAge(r[idxAge]) : undefined;
     if (risk != null) playersById[id].risk = risk;
@@ -391,6 +466,10 @@ export function importRankingsCsv(
     if (adp != null) {
       playersById[id].adp = adp;
       adpByIdFromFile[id] = adp;
+    }
+    if (sfValue != null) {
+      (playersById[id] as any).sfValue = sfValue;
+      sfValueByIdFromFile[id] = sfValue;
     }
 
     rankingIdsRaw.push(id);
@@ -417,6 +496,7 @@ export function importRankingsCsv(
 
   const hasAnyRank = Object.keys(rankByIdFromFile).length > 0;
   const hasAnyAdp = Object.keys(adpByIdFromFile).length > 0;
+  const hasAnySfValue = Object.keys(sfValueByIdFromFile).length > 0;
 
   // Order the imported rankingIds based on the requested strategy.
   // NOTE: Tier breaks are rebuilt *after* this ordering.
@@ -438,6 +518,24 @@ export function importRankingsCsv(
         }
 
         // Stable fallback: original (first-seen) order
+        return (firstSeenIndexById[a] ?? 0) - (firstSeenIndexById[b] ?? 0);
+      });
+    } else if (sortBy === "sfvalue" && hasAnySfValue) {
+      rankingIds.sort((a, b) => {
+        const aa = sfValueByIdFromFile[a];
+        const bb = sfValueByIdFromFile[b];
+
+        const aHas = typeof aa === "number";
+        const bHas = typeof bb === "number";
+
+        if (aHas && bHas) {
+          if (aa !== bb) return bb - aa; // DESC
+        } else if (aHas && !bHas) {
+          return -1;
+        } else if (!aHas && bHas) {
+          return 1;
+        }
+
         return (firstSeenIndexById[a] ?? 0) - (firstSeenIndexById[b] ?? 0);
       });
     } else if (hasAnyRank) {
@@ -482,24 +580,24 @@ export function importRankingsCsv(
 
     tiersByPos[pos] = normalizeTierBreaks(pos, tiersByPos[pos]);
   });
-  return { rankingIds, tiersByPos, players: Object.values(playersById), hasAnyAdp };
+  return { rankingIds, tiersByPos, players: Object.values(playersById), hasAnyAdp, hasAnySfValue };
 }
 
-// ---------- XLSX multi-sheet import/export (Rankings/ADP) ----------
+// ---------- XLSX multi-sheet import/export (Rankings/KTC) ----------
 
 export type RankingsListsState<T> = Record<RankingsListKey, T>;
 
 export function emptyRankingIdsByList(initial: string[] = []): RankingsListsState<string[]> {
   return {
     Rankings: [...initial],
-    ADP: [...initial],
+    KTC: [...initial],
   };
 }
 
 export function emptyTiersByPosByList(): RankingsListsState<TiersByPos> {
   return {
     Rankings: emptyTiersByPos(),
-    ADP: emptyTiersByPos(),
+    KTC: emptyTiersByPos(),
   };
 }
 
@@ -569,7 +667,7 @@ export function exportRankingsXlsx(args: {
   tiersByPosByList: RankingsListsState<TiersByPos>;}): ArrayBuffer {
   const { rankingIdsByList, playersById, tiersByPosByList } = args;
 
-  // Export a SINGLE sheet (Rankings). ADP ordering is derived on import from the ADP column.
+  // Export a SINGLE sheet (Rankings). KTC ordering can be derived on import from the SFValue column.
   const wb = XLSX.utils.book_new();
 
   const rankingIds = rankingIdsByList["Rankings"] ?? [];
@@ -599,7 +697,7 @@ export function importRankingsXlsx(args: {
 
   // Import from a SINGLE sheet (Rankings). We derive:
   // - Rankings ordering from the "rank" column (or row order / first column fallback)
-  // - ADP ordering from the "adp" column
+  // - KTC ordering from the "sfvalue" column (if present)
   const rankingsSheetName = wb.Sheets["Rankings"]
     ? "Rankings"
     : wb.Sheets["UDK"]
@@ -618,21 +716,21 @@ export function importRankingsXlsx(args: {
   // Primary import: Rankings list (tiers / overall tier breaks live here)
   const parsedRankings = importRankingsCsv({ csvText, sortBy: "rank" });
 
-  // Derived import: ADP list (ordering only; tiers/breaks are cleared to avoid mismatched tier metadata)
-  const parsedADP = importRankingsCsv({ csvText, sortBy: "adp" });
+  // Derived import: KTC list (ordering only; tiers/breaks are cleared to avoid mismatched tier metadata)
+  const parsedKTC = importRankingsCsv({ csvText, sortBy: "sfvalue" });
 
   const rankingIdsByList: Partial<RankingsListsState<string[]>> = {
     Rankings: parsedRankings.rankingIds,
-    ...(parsedADP.hasAnyAdp ? { ADP: parsedADP.rankingIds } : {}),
+    ...(parsedKTC.hasAnySfValue ? { KTC: parsedKTC.rankingIds } : {}),
   };
 
   const tiersByPosByList: Partial<RankingsListsState<TiersByPos>> = {
     Rankings: parsedRankings.tiersByPos,
-    // Only import ADP tiers if ADP data exists; otherwise keep existing ADP list/tiers unchanged.
-    ...(parsedADP.hasAnyAdp ? { ADP: parsedADP.tiersByPos } : {}),
+    // Only import KTC tiers if SFValue data exists; otherwise keep existing KTC list/tiers unchanged.
+    ...(parsedKTC.hasAnySfValue ? { KTC: parsedKTC.tiersByPos } : {}),
   };
   const playersById: Record<string, Player> = {};
-  for (const p of [...parsedRankings.players, ...parsedADP.players]) {
+  for (const p of [...parsedRankings.players, ...parsedKTC.players]) {
     if (!playersById[p.id]) playersById[p.id] = p;
   }
 
