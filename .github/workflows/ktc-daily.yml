@@ -34,7 +34,7 @@ jobs:
           node-version: "20"
 
       - name: Update KTC_LAST_UPDATED
-        run: node update-ktc-last-updated.mjs src/data/rankings.ts "$(date '+%m/%d/%y %I:%M%P')"
+        run: TZ=America/New_York node update-ktc-last-updated.mjs src/data/rankings.ts "$(date '+%m/%d/%y %I:%M%P')"
 
       - name: Commit & push if changed
         run: |
