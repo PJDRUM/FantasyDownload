@@ -1,41 +1,53 @@
 #!/usr/bin/env node
-/**
- * Usage:
- *   node scripts/update-ktc-last-updated.mjs <path-to-rankings.ts> <timestamp>
- *
- * Replaces (or appends) the line:
- *   export const KTC_LAST_UPDATED = "MM/DD/YY hh:mma";
- */
 import fs from "node:fs";
-import path from "node:path";
 
-const [, , filePathArg, timestamp] = process.argv;
+const [, , tsPath, timestampArg] = process.argv;
 
-if (!filePathArg || !timestamp) {
-  console.error("Usage: node scripts/update-ktc-last-updated.mjs <rankings.ts> <timestamp>");
+if (!tsPath) {
+  console.error('Usage: node update-ktc-last-updated.mjs <rankings.ts> <timestamp>');
   process.exit(1);
 }
 
-const filePath = path.resolve(process.cwd(), filePathArg);
-if (!fs.existsSync(filePath)) {
-  console.error(`File not found: ${filePath}`);
-  process.exit(1);
-}
+const timestamp =
+  timestampArg ??
+  new Date().toLocaleString("en-US", {
+    timeZone: "America/New_York",
+    year: "2-digit",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  })
+    // "02/26/26, 09:04 PM" -> "02/26/26 09:04pm"
+    .replace(", ", " ")
+    .replace(" AM", "am")
+    .replace(" PM", "pm");
 
-const src = fs.readFileSync(filePath, "utf8");
-
-// Match: export const KTC_LAST_UPDATED = "....";
-const re = /export\s+const\s+KTC_LAST_UPDATED\s*=\s*"[^"]*"\s*;?/;
-
+const content = fs.readFileSync(tsPath, "utf8");
 const line = `export const KTC_LAST_UPDATED = "${timestamp}";`;
 
-let out;
-if (re.test(src)) {
-  out = src.replace(re, line);
+const regex = /^export const KTC_LAST_UPDATED\s*=\s*".*?";\s*$/m;
+
+let next;
+if (regex.test(content)) {
+  next = content.replace(regex, line);
 } else {
-  const trimmed = src.replace(/\s*$/,"");
-  out = `${trimmed}\n\n${line}\n`;
+  // If it doesn't exist yet, add it once at end with a newline
+  next = content.replace(/\s*$/, "\n" + line + "\n");
 }
 
-fs.writeFileSync(filePath, out, "utf8");
-console.log(`Updated KTC_LAST_UPDATED in ${filePathArg} -> ${timestamp}`);
+// Also: remove any accidental duplicates beyond the first
+// Keep the first occurrence only.
+const lines = next.split(/\r?\n/);
+let seen = false;
+const deduped = lines.filter((l) => {
+  if (/^export const KTC_LAST_UPDATED\s*=/.test(l)) {
+    if (seen) return false;
+    seen = true;
+  }
+  return true;
+}).join("\n");
+
+fs.writeFileSync(tsPath, deduped.endsWith("\n") ? deduped : deduped + "\n", "utf8");
+console.log(`Updated KTC_LAST_UPDATED in ${tsPath} -> ${timestamp}`);
