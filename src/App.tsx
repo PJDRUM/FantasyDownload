@@ -47,11 +47,13 @@ export default function App() {
   const [rankingIdsByList, setRankingIdsByList] = useState<Record<RankingsListKey, string[]>>(() => ({
     Rankings: [...initialRankingIds],
     KTC: [...initialRankingIds],
+    ADP: [...initialRankingIds],
   }));
 
   const [tiersByPosByList, setTiersByPosByList] = useState<Record<RankingsListKey, TiersByPos>>(() => ({
     Rankings: emptyTiersByPos(),
     KTC: emptyTiersByPos(),
+    ADP: emptyTiersByPos(),
   }));
 
 
@@ -179,6 +181,7 @@ export default function App() {
       setRankingIdsByList((prev) => ({
         Rankings: [id, ...prev.Rankings.filter((x) => x !== id)],
         KTC: [id, ...prev.KTC.filter((x) => x !== id)],
+        ADP: [id, ...prev.ADP.filter((x) => x !== id)],
       }));
     },
     [setExtraPlayers, setRankingIdsByList]
@@ -251,6 +254,8 @@ export default function App() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   function onBoardDragEnd(event: DragEndEvent) {
+    // Only the editable Rankings list can be reordered. (KTC/ADP are static.)
+    if (rankingsListKey !== "Rankings") return;
     // Rankings Board: allow re-ordering the active rankings list via drag & drop.
     const { active, over } = event;
     if (!over || active.id === over.id) return;

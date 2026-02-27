@@ -11,7 +11,7 @@ import { StarIcon, type FavoriteStarStyle } from "./Rankings/StarIcon";
 import { score10ToPct } from "./Rankings/RiskUpside";
 import PlayerProfileModal from "./PlayerProfileModal";
 import { playerProfilesById } from "../data/playerProfiles";
-import { KTC_LAST_UPDATED } from "../data/rankings";
+import { KTC_LAST_UPDATED, ADP_LAST_UPDATED } from "../data/rankings";
 const ENABLE_PLAYER_PROFILES_ON_RANKINGS_LIST = false; // Toggle to temporarily disable PlayerProfiles on the Rankings list.
 
 type Tab = "Overall" | Position;
@@ -78,6 +78,13 @@ export default function RankingsList(props: {
   } = props;
 
   const [profilePlayerId, setProfilePlayerId] = useState<string | null>(null);
+  const [rankingsFormat, setRankingsFormat] = useState<"Dynasty" | "Redraft">("Dynasty");
+useLayoutEffect(() => {
+  // Keep the secondary tab valid when switching between Dynasty/Redraft.
+  if (rankingsFormat === "Redraft" && rankingsListKey === "KTC") setRankingsListKey("ADP");
+  if (rankingsFormat === "Dynasty" && rankingsListKey === "ADP") setRankingsListKey("KTC");
+}, [rankingsFormat, rankingsListKey, setRankingsListKey]);
+
 
   const hideRankColumn = false;
 
@@ -251,6 +258,13 @@ export default function RankingsList(props: {
     if (parts.length <= 1) return { raw, date: raw, time: "" };
     return { raw, date: parts[0], time: parts.slice(1).join(" ") };
   }, []);
+const adpUpdated = useMemo(() => {
+  const raw = String(ADP_LAST_UPDATED ?? "").trim();
+  const parts = raw.split(/\s+/);
+  if (parts.length <= 1) return { raw, date: raw, time: "" };
+  return { raw, date: parts[0], time: parts.slice(1).join(" ") };
+}, []);
+
 
   // Selected-tab style: neutral translucent overlay (no green)
   const selectedPillBg = "rgba(255,255,255,0.14)";
@@ -281,7 +295,65 @@ export default function RankingsList(props: {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: 0, gap: 10 }}>
-      {/* Top bar: Rankings set tabs */}
+      {/* Format tabs: Redraft / Dynasty */}
+<div
+  style={{
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  }}
+>
+  <div
+    style={{
+      display: "flex",
+      gap: 6,
+      padding: 4,
+      borderRadius: 999,
+      border: "1px solid var(--border-0)",
+      background: "var(--panel-bg)",
+      width: "fit-content",
+      maxWidth: "100%",
+      overflowX: "visible",
+      scrollbarWidth: "none",
+      msOverflowStyle: "none",
+    }}
+  >
+    {(["Redraft", "Dynasty"] as const).map((k) => {
+      const active = k === rankingsFormat;
+      return (
+        <button
+          key={k}
+          onClick={() => setRankingsFormat(k)}
+          aria-label={k}
+          title={k}
+          style={{
+            border: active ? selectedPillBorder : "none",
+            borderRadius: 999,
+            padding: "10px 14px",
+            fontWeight: 900,
+            fontSize: 13,
+            cursor: "pointer",
+            background: active ? selectedPillBg : "transparent",
+            color: active ? "var(--text-0)" : "var(--text-1)",
+            whiteSpace: "nowrap",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            lineHeight: 1,
+            boxShadow: active ? selectedPillShadow : "none",
+          }}
+        >
+          {k}
+        </button>
+      );
+    })}
+  </div>
+</div>
+
+{/* Top bar: Rankings set tabs */}
       <div
         style={{
           display: "flex",
@@ -306,89 +378,92 @@ export default function RankingsList(props: {
             msOverflowStyle: "none",
           }}
         >
-          {RANKINGS_LIST_KEYS.map((k) => {
+          {(rankingsFormat === "Redraft" ? (["Rankings", "ADP"] as const) : (["Rankings", "KTC"] as const)).map((k) => {
             const active = k === rankingsListKey;
-            const label = k; // keys are now "Rankings" | "KTC"
-            return k === "KTC" ? (
-              <span key={k} style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
-                <button
-                  onClick={() => setRankingsListKey(k)}
-                  aria-label={label}
-                  title={label}
-                  style={{
-                    border: active ? selectedPillBorder : "none",
-                    borderRadius: 999,
-                    padding: "10px 14px",
-                    fontWeight: 900,
-                    fontSize: 13,
-                    cursor: "pointer",
-                    background: active ? selectedPillBg : "transparent",
-                    color: active ? "var(--text-0)" : "var(--text-1)",
-                    whiteSpace: "nowrap",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                    lineHeight: 1,
-                    boxShadow: active ? selectedPillShadow : "none",
-                  }}
-                >
-                  {label}
-                </button>
-                {active && (
-                  <span
-                    aria-label={`Updated: ${ktcUpdated.raw}`}
-                    title={`Updated: ${ktcUpdated.raw}`}
-                    style={{
-                      position: "absolute",
-                      left: "calc(100% + 8px)",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "flex-start",
-                      gap: 2,
-                      fontSize: 10,
-                      fontWeight: 700,
-                      opacity: 0.65,
-                      lineHeight: 1.05,
-                      whiteSpace: "nowrap",
-                      pointerEvents: "none",
-                    }}
-                  >
-                    <span>Updated:</span>
-                    <span>{ktcUpdated.date}</span>
-                    {ktcUpdated.time && <span>{ktcUpdated.time}</span>}
-                  </span>
-                )}
-              </span>
-            ) : (
-              <button
-                key={k}
-                onClick={() => setRankingsListKey(k)}
-                aria-label={label}
-                title={label}
-                style={{
-                  border: active ? selectedPillBorder : "none",
-                  borderRadius: 999,
-                  padding: "10px 14px",
-                  fontWeight: 900,
-                  fontSize: 13,
-                  cursor: "pointer",
-                  background: active ? selectedPillBg : "transparent",
-                  color: active ? "var(--text-0)" : "var(--text-1)",
-                  whiteSpace: "nowrap",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  lineHeight: 1,
-                  boxShadow: active ? selectedPillShadow : "none",
-                }}
-              >
-                {label}
-              </button>
-            );
+            const label = k;
+const isUpdatedTab = k === "KTC" || k === "ADP";
+const updated = k === "KTC" ? ktcUpdated : adpUpdated;
+
+return isUpdatedTab ? (
+  <span key={k} style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+    <button
+      onClick={() => setRankingsListKey(k)}
+      aria-label={label}
+      title={label}
+      style={{
+        border: active ? selectedPillBorder : "none",
+        borderRadius: 999,
+        padding: "10px 14px",
+        fontWeight: 900,
+        fontSize: 13,
+        cursor: "pointer",
+        background: active ? selectedPillBg : "transparent",
+        color: active ? "var(--text-0)" : "var(--text-1)",
+        whiteSpace: "nowrap",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+        lineHeight: 1,
+        boxShadow: active ? selectedPillShadow : "none",
+      }}
+    >
+      {label}
+    </button>
+    {active && (
+      <span
+        aria-label={`Updated: ${updated.raw}`}
+        title={`Updated: ${updated.raw}`}
+        style={{
+          position: "absolute",
+          left: "calc(100% + 8px)",
+          top: "50%",
+          transform: "translateY(-50%)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-start",
+          gap: 2,
+          fontSize: 10,
+          fontWeight: 700,
+          opacity: 0.65,
+          lineHeight: 1.05,
+          whiteSpace: "nowrap",
+          pointerEvents: "none",
+        }}
+      >
+        <span>Updated:</span>
+        <span>{updated.date}</span>
+        {updated.time && <span>{updated.time}</span>}
+      </span>
+    )}
+  </span>
+) : (
+  <button
+    key={k}
+    onClick={() => setRankingsListKey(k)}
+    aria-label={label}
+    title={label}
+    style={{
+      border: active ? selectedPillBorder : "none",
+      borderRadius: 999,
+      padding: "10px 14px",
+      fontWeight: 900,
+      fontSize: 13,
+      cursor: "pointer",
+      background: active ? selectedPillBg : "transparent",
+      color: active ? "var(--text-0)" : "var(--text-1)",
+      whiteSpace: "nowrap",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      lineHeight: 1,
+      boxShadow: active ? selectedPillShadow : "none",
+    }}
+  >
+    {label}
+  </button>
+);
           })}
         </div>
 
@@ -726,7 +801,11 @@ export default function RankingsList(props: {
 
             const isHi = highlightId === id;
 
-            const adpOrValue = rankingsListKey === "KTC" ? (ktcValueMode === "1qb" ? (p as any).value : (p as any).sfValue) : p.adp;
+            const adpOrValue = rankingsListKey === "KTC"
+              ? (ktcValueMode === "1qb" ? (p as any).value : (p as any).sfValue)
+              : rankingsListKey === "ADP"
+                ? idx + 1
+                : p.adp;
             const riskRaw = getRiskRaw(p);
             const upsideRaw = getUpsideRaw(p);
 
