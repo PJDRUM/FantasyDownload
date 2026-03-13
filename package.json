@@ -31,7 +31,9 @@
     "cache:headshots": "tsx scripts/cacheHeadshots.ts",
     "import:profiles": "node scripts/import-player-profiles.mjs",
     "adp:setup": "bash scripts/adp_update.sh --setup-only",
-    "adp:update": "bash scripts/adp_update.sh"
+    "adp:update": "bash scripts/adp_update.sh",
+    "consensus:setup": "bash scripts/consensus_update.sh --setup-only",
+    "consensus:update": "bash scripts/consensus_update.sh"
   },
   "eslintConfig": {
     "extends": [

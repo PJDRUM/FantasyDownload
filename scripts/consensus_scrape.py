@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Scrape FantasyPros redraft ADP for Standard, Half-PPR, and PPR, then overwrite:
-  src/data/adp.csv
+Scrape FantasyPros consensus draft rankings for Standard, Half-PPR, and PPR, then overwrite:
+  src/data/consensus.csv
 
 This is designed to mirror the project's KTC daily updater pattern.
 """
@@ -21,9 +21,9 @@ import requests
 
 
 URLS = {
-    "standard": "https://www.fantasypros.com/nfl/adp/overall.php",
-    "halfPpr": "https://www.fantasypros.com/nfl/adp/half-point-ppr-overall.php",
-    "ppr": "https://www.fantasypros.com/nfl/adp/ppr-overall.php",
+    "standard": "https://www.fantasypros.com/nfl/rankings/consensus-cheatsheets.php",
+    "halfPpr": "https://www.fantasypros.com/nfl/rankings/half-point-ppr-cheatsheets.php",
+    "ppr": "https://www.fantasypros.com/nfl/rankings/ppr-cheatsheets.php",
 }
 
 MIN_ROWS_BY_FORMAT = {
@@ -32,7 +32,7 @@ MIN_ROWS_BY_FORMAT = {
     "ppr": 250,
 }
 
-OUT_CSV = Path("src/data/adp.csv")
+OUT_CSV = Path("src/data/consensus.csv")
 RANKINGS_TS = Path("src/data/rankings.ts")
 
 TEAM_ALIASES = {
@@ -354,13 +354,17 @@ def match_player(name: str, position: str | None, team: str | None, indexes: dic
 
 
 def choose_value_column(columns: list[str]) -> str:
-    realtime_candidates = [
-        col for col in columns
-        if "real-time" in col.lower() or "real time" in col.lower()
-    ]
-    if realtime_candidates:
-        return realtime_candidates[0]
-    raise KeyError(f"Could not find Real-Time column. Saw: {columns!r}")
+    for option in (
+        ("rk",),
+        ("rank",),
+        ("ecr",),
+        ("overall", "rank"),
+    ):
+        try:
+            return find_column(columns, *option)
+        except KeyError:
+            continue
+    raise KeyError(f"Could not find consensus rank column. Saw: {columns!r}")
 
 
 def dedupe_rows(rows: list[dict]) -> list[dict]:
@@ -378,13 +382,13 @@ def dedupe_rows(rows: list[dict]) -> list[dict]:
             deduped[key] = row
             continue
 
-        if float(row["adp"]) < float(existing["adp"]):
+        if float(row["rank"]) < float(existing["rank"]):
             deduped[key] = row
 
     return list(deduped.values())
 
 
-def fetch_adp_rows(url: str) -> list[dict]:
+def fetch_consensus_rows(url: str) -> list[dict]:
     response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=30)
     response.raise_for_status()
 
@@ -396,13 +400,13 @@ def fetch_adp_rows(url: str) -> list[dict]:
     for candidate in tables:
         columns = flatten_columns(candidate.columns)
         lowered = [col.lower() for col in columns]
-        if any("player" in col for col in lowered) and any("real-time" in col or "real time" in col for col in lowered):
+        if any("player" in col for col in lowered) and any(("rk" in col) or ("rank" in col) or ("ecr" in col) for col in lowered):
             table = candidate.copy()
             table.columns = columns
             break
 
     if table is None:
-        raise RuntimeError(f"Could not find ADP table with Real-Time column at {url}")
+        raise RuntimeError(f"Could not find consensus rankings table at {url}")
 
     columns = list(table.columns)
     player_col = find_column(columns, "player")
@@ -423,12 +427,12 @@ def fetch_adp_rows(url: str) -> list[dict]:
         if not player_name or pd.isna(value_raw):
             continue
 
-        try:
-            adp = float(value_raw)
-        except Exception:
+        value_match = re.search(r"\d+(?:\.\d+)?", str(value_raw))
+        if not value_match:
             continue
 
-        if adp <= 0:
+        rank = float(value_match.group(0))
+        if rank <= 0:
             continue
 
         rows.append(
@@ -436,7 +440,7 @@ def fetch_adp_rows(url: str) -> list[dict]:
                 "name": player_name,
                 "team": team,
                 "position": position,
-                "adp": round(adp, 1),
+                "rank": round(rank, 1),
             }
         )
 
@@ -468,22 +472,11 @@ def write_csv(records: list[dict]) -> None:
     with OUT_CSV.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(
             handle,
-            fieldnames=["id", "name", "position", "team", "adpStandard", "adpHalfPpr", "adpPpr"],
+            fieldnames=["id", "name", "position", "team", "consensusStandard", "consensusHalfPpr", "consensusPpr"],
         )
         writer.writeheader()
         for record in records:
             writer.writerow(record)
-
-
-
-def enrich_record(record: dict, *, name: str, position: str | None, team: str | None) -> None:
-    cleaned_name = clean_player_name(name)
-    if cleaned_name and not record.get("name"):
-        record["name"] = cleaned_name
-    if position and (not record.get("position") or record.get("position") == "WR"):
-        record["position"] = position
-    if team and not record.get("team"):
-        record["team"] = team
 
 
 def main() -> int:
@@ -496,7 +489,7 @@ def main() -> int:
     fetched_counts: dict[str, int] = {}
 
     for format_key, url in URLS.items():
-        rows = fetch_adp_rows(url)
+        rows = fetch_consensus_rows(url)
         fetched_counts[format_key] = len(rows)
         print(f"[{format_key}] fetched {len(rows)} rows")
 
@@ -504,14 +497,14 @@ def main() -> int:
         if len(rows) < minimum:
             raise RuntimeError(
                 f"{format_key} returned only {len(rows)} rows, below the safety floor of {minimum}. "
-                "Aborting so the existing adp.csv does not get wiped out."
+                "Aborting so the existing consensus.csv does not get wiped out."
             )
 
         for row in rows:
             name = row["name"]
             team = row["team"]
             position = row["position"]
-            adp = row["adp"]
+            rank = row["rank"]
 
             matched = match_player(name, position, team, indexes)
 
@@ -524,15 +517,11 @@ def main() -> int:
                         "name": matched.name,
                         "position": position or matched.position,
                         "team": team or matched.team or "",
-                        "adpStandard": "",
-                        "adpHalfPpr": "",
-                        "adpPpr": "",
+                        "consensusStandard": "",
+                        "consensusHalfPpr": "",
+                        "consensusPpr": "",
                     },
                 )
-                if team and not record.get("team"):
-                    record["team"] = team
-                if position and not record.get("position"):
-                    record["position"] = position
             else:
                 player_id = make_fallback_id(name, position, team, set(merged.keys()))
                 record = merged.setdefault(
@@ -542,12 +531,11 @@ def main() -> int:
                         "name": clean_player_name(name) or name,
                         "position": position or "WR",
                         "team": team or "",
-                        "adpStandard": "",
-                        "adpHalfPpr": "",
-                        "adpPpr": "",
+                        "consensusStandard": "",
+                        "consensusHalfPpr": "",
+                        "consensusPpr": "",
                     },
                 )
-                enrich_record(record, name=name, position=position, team=team)
                 label = f"{record['name']} ({record['position']}, {record['team'] or '-'})"
                 if position in {"K", "DST"}:
                     fallback_k_dst_players.add(label)
@@ -555,25 +543,25 @@ def main() -> int:
                     fallback_skill_players.add(label)
 
             field_name = (
-                "adpStandard" if format_key == "standard"
-                else "adpHalfPpr" if format_key == "halfPpr"
-                else "adpPpr"
+                "consensusStandard" if format_key == "standard"
+                else "consensusHalfPpr" if format_key == "halfPpr"
+                else "consensusPpr"
             )
             current_value = record[field_name]
-            if current_value == "" or adp < float(current_value):
-                record[field_name] = adp
+            if current_value == "" or rank < float(current_value):
+                record[field_name] = rank
 
     records = list(merged.values())
     if len(records) < 250:
         raise RuntimeError(
-            f"Only built {len(records)} ADP records, which is below the safety floor. "
-            "Aborting so the existing adp.csv stays untouched."
+            f"Only built {len(records)} consensus ranking records, which is below the safety floor. "
+            "Aborting so the existing consensus.csv stays untouched."
         )
 
     records.sort(
         key=lambda record: (
-            float(record["adpHalfPpr"]) if record["adpHalfPpr"] != "" else float("inf"),
-            float(record["adpPpr"]) if record["adpPpr"] != "" else float("inf"),
+            float(record["consensusHalfPpr"]) if record["consensusHalfPpr"] != "" else float("inf"),
+            float(record["consensusPpr"]) if record["consensusPpr"] != "" else float("inf"),
             record["name"],
         )
     )
@@ -587,11 +575,12 @@ def main() -> int:
     if fallback_skill_players:
         sample = ", ".join(sorted(fallback_skill_players)[:15])
         print(
-            f"Created {len(fallback_skill_players)} new skill-player records not present in rankings.ts. "
-            f"Examples: {sample}"
+            f"Created fallback records for {len(fallback_skill_players)} unmatched skill players. "
+            f"Examples: {sample}",
+            file=sys.stderr,
         )
     else:
-        print("Matched every scraped non-K/DST player to an existing player record.")
+        print("Matched every scraped non-K/DST consensus player to an existing player record.")
 
     return 0
 

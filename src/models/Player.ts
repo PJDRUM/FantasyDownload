@@ -21,6 +21,11 @@ export type Player = {
   adpHalfPpr?: number;
   adpPpr?: number;
 
+  /** Consensus draft ranking by scoring format (optional; populated from FantasyPros consensus rankings imports). */
+  consensusStandard?: number;
+  consensusHalfPpr?: number;
+  consensusPpr?: number;
+
   /** Player age (optional; provided via import/export). */
   age?: number;
 

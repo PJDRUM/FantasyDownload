@@ -10,11 +10,11 @@ import { StarIcon, type FavoriteStarStyle } from "./Rankings/StarIcon";
 import { score10ToPct } from "./Rankings/RiskUpside";
 import PlayerProfileModal from "./PlayerProfileModal";
 import { playerProfilesById } from "../data/playerProfiles";
-import { KTC_LAST_UPDATED, ADP_LAST_UPDATED } from "../data/rankings";
+import { KTC_LAST_UPDATED, ADP_LAST_UPDATED, CONSENSUS_LAST_UPDATED } from "../data/rankings";
 const ENABLE_PLAYER_PROFILES_ON_RANKINGS_LIST = false; // Toggle to temporarily disable PlayerProfiles on the Rankings list.
 
 type Tab = "Overall" | Position;
-type AdpFormat = "standard" | "halfPpr" | "ppr";
+type ScoringFormat = "standard" | "halfPpr" | "ppr";
 
 function isFiniteNumber(x: unknown): x is number {
   return typeof x === "number" && Number.isFinite(x);
@@ -30,7 +30,7 @@ function getUpsideRaw(p: Player): number | undefined {
   return isFiniteNumber(v) ? v : undefined;
 }
 
-function getSelectedAdp(p: Player, adpFormat: AdpFormat): number | undefined {
+function getSelectedAdp(p: Player, adpFormat: ScoringFormat): number | undefined {
   const direct =
     adpFormat === "standard"
       ? p.adpStandard
@@ -40,6 +40,17 @@ function getSelectedAdp(p: Player, adpFormat: AdpFormat): number | undefined {
 
   if (isFiniteNumber(direct)) return direct;
   return isFiniteNumber(p.adp) ? p.adp : undefined;
+}
+
+function getSelectedConsensus(p: Player, format: ScoringFormat): number | undefined {
+  const direct =
+    format === "standard"
+      ? p.consensusStandard
+      : format === "halfPpr"
+        ? p.consensusHalfPpr
+        : p.consensusPpr;
+
+  return isFiniteNumber(direct) ? direct : undefined;
 }
 
 export default function RankingsList(props: {
@@ -73,8 +84,11 @@ export default function RankingsList(props: {
   onChangeKtcValueMode?: (m: "1qb" | "2qb") => void;
 
   // ADP scoring format
-  adpFormat?: AdpFormat;
-  onChangeAdpFormat?: (format: AdpFormat) => void;
+  adpFormat?: ScoringFormat;
+  onChangeAdpFormat?: (format: ScoringFormat) => void;
+
+  consensusFormat?: ScoringFormat;
+  onChangeConsensusFormat?: (format: ScoringFormat) => void;
 
   onSetAsRankings?: () => void;
 }) {
@@ -95,6 +109,8 @@ export default function RankingsList(props: {
     onChangeKtcValueMode,
     adpFormat = "halfPpr",
     onChangeAdpFormat,
+    consensusFormat = "halfPpr",
+    onChangeConsensusFormat,
     onSetAsRankings,
   } = props;
 
@@ -332,21 +348,29 @@ export default function RankingsList(props: {
     if (parts.length <= 1) return { raw, date: raw, time: "" };
     return { raw, date: parts[0], time: parts.slice(1).join(" ") };
   }, []);
+  const consensusUpdated = useMemo(() => {
+    const raw = String(CONSENSUS_LAST_UPDATED ?? "").trim();
+    const parts = raw.split(/\s+/);
+    if (parts.length <= 1) return { raw, date: raw, time: "" };
+    return { raw, date: parts[0], time: parts.slice(1).join(" ") };
+  }, []);
 
   const rankingTabs = useMemo(
     () => [
       { key: "Rankings" as const, ariaLabel: "Rankings", labelTop: "Rankings", labelBottom: null, updated: null },
+      { key: "Consensus" as const, ariaLabel: "Consensus Rankings", labelTop: "Consensus", labelBottom: "Rankings", updated: consensusUpdated },
       { key: "ADP" as const, ariaLabel: "Redraft ADP", labelTop: "Redraft", labelBottom: "ADP", updated: adpUpdated },
       { key: "KTC" as const, ariaLabel: "Dynasty Values", labelTop: "Dynasty", labelBottom: "Values", updated: ktcUpdated },
     ],
-    [adpUpdated, ktcUpdated]
+    [adpUpdated, consensusUpdated, ktcUpdated]
   );
 
   const activeRankingUpdated = useMemo(() => {
+    if (rankingsListKey === "Consensus") return consensusUpdated;
     if (rankingsListKey === "ADP") return adpUpdated;
     if (rankingsListKey === "KTC") return ktcUpdated;
     return null;
-  }, [adpUpdated, ktcUpdated, rankingsListKey]);
+  }, [adpUpdated, consensusUpdated, ktcUpdated, rankingsListKey]);
 
   // Selected-tab style: neutral translucent overlay (no green)
   const selectedPillBg = "rgba(255,255,255,0.14)";
@@ -566,7 +590,7 @@ export default function RankingsList(props: {
             })}
           </div>
 
-          {(rankingsListKey === "KTC" || rankingsListKey === "ADP") && onSetAsRankings && (
+          {(rankingsListKey === "KTC" || rankingsListKey === "ADP" || rankingsListKey === "Consensus") && onSetAsRankings && (
             <button
               type="button"
               onClick={() => {
@@ -918,6 +942,69 @@ export default function RankingsList(props: {
                     )}
                     <span>ADP</span>
                   </div>
+                ) : rankingsListKey === "Consensus" ? (
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                    {onChangeConsensusFormat && (
+                      <div
+                        role="group"
+                        aria-label="Consensus scoring format"
+                        style={{
+                          display: "inline-flex",
+                          gap: 0,
+                          border: "1px solid rgba(255,255,255,0.18)",
+                          borderRadius: 999,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => onChangeConsensusFormat("standard")}
+                          style={{
+                            padding: "2px 8px",
+                            fontSize: 11,
+                            lineHeight: "16px",
+                            cursor: "pointer",
+                            border: "none",
+                            color: "rgba(255,255,255,0.9)",
+                            background: consensusFormat === "standard" ? "rgba(255,255,255,0.16)" : "transparent",
+                          }}
+                        >
+                          STD
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onChangeConsensusFormat("halfPpr")}
+                          style={{
+                            padding: "2px 8px",
+                            fontSize: 11,
+                            lineHeight: "16px",
+                            cursor: "pointer",
+                            border: "none",
+                            color: "rgba(255,255,255,0.9)",
+                            background: consensusFormat === "halfPpr" ? "rgba(255,255,255,0.16)" : "transparent",
+                          }}
+                        >
+                          HALF
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onChangeConsensusFormat("ppr")}
+                          style={{
+                            padding: "2px 8px",
+                            fontSize: 11,
+                            lineHeight: "16px",
+                            cursor: "pointer",
+                            border: "none",
+                            color: "rgba(255,255,255,0.9)",
+                            background: consensusFormat === "ppr" ? "rgba(255,255,255,0.16)" : "transparent",
+                          }}
+                        >
+                          PPR
+                        </button>
+                      </div>
+                    )}
+                    <span>ECR</span>
+                  </div>
                 ) : (
                   "ADP"
                 )}
@@ -976,7 +1063,9 @@ export default function RankingsList(props: {
                 ? (ktcValueMode === "1qb" ? (p as any).value : (p as any).sfValue)
                 : rankingsListKey === "ADP"
                   ? getSelectedAdp(p, adpFormat)
-                  : p.adp;
+                  : rankingsListKey === "Consensus"
+                    ? getSelectedConsensus(p, consensusFormat)
+                    : p.adp;
               const riskRaw = getRiskRaw(p);
               const upsideRaw = getUpsideRaw(p);
 
@@ -1194,7 +1283,9 @@ export default function RankingsList(props: {
                             {typeof adpOrValue === "number"
                               ? rankingsListKey === "KTC"
                                 ? Math.round(adpOrValue).toLocaleString()
-                                : adpOrValue.toFixed(1)
+                                : rankingsListKey === "Consensus"
+                                  ? Math.round(adpOrValue).toLocaleString()
+                                  : adpOrValue.toFixed(1)
                               : "—"}
                           </div>
                         )}

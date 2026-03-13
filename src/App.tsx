@@ -1,13 +1,9 @@
 // src/App.tsx
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import {
-  players as basePlayersArr,
-  rankingIds as initialRankingIds,
-  KTC_LAST_UPDATED,
-  ADP_LAST_UPDATED,
-} from "./data/rankings";
+import { players as basePlayersArr, rankingIds as initialRankingIds } from "./data/rankings";
 import rankingsCsvUrl from "./data/rankings.csv";
 import adpCsvUrl from "./data/adp.csv";
+import consensusCsvUrl from "./data/consensus.csv";
 import type { Position, Player } from "./models/Player";
 
 import RankingsList from "./components/RankingsList";
@@ -19,6 +15,7 @@ import { posColor } from "./utils/posColor";
 import { exportCheatsheetPdf } from "./utils/cheatsheetPdf";
 import { usePlayers } from "./state/usePlayers";
 import { parseSimpleCsv } from "./utils/csv";
+import { KTC_LAST_UPDATED, ADP_LAST_UPDATED, CONSENSUS_LAST_UPDATED } from "./data/rankings";
 
 import {
   emptyTiersByPos,
@@ -33,7 +30,7 @@ import {
 import { DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
 
-type AdpFormat = "standard" | "halfPpr" | "ppr";
+type ScoringFormat = "standard" | "halfPpr" | "ppr";
 
 function parseOptionalNumber(raw: unknown): number | undefined {
   if (raw == null) return undefined;
@@ -45,10 +42,16 @@ function parseOptionalNumber(raw: unknown): number | undefined {
   return Number.isFinite(value) ? value : undefined;
 }
 
-function getAdpValueForFormat(player: Player, format: AdpFormat): number | undefined {
+function getAdpValueForFormat(player: Player, format: ScoringFormat): number | undefined {
   if (format === "standard") return player.adpStandard;
   if (format === "halfPpr") return player.adpHalfPpr;
   return player.adpPpr;
+}
+
+function getConsensusValueForFormat(player: Player, format: ScoringFormat): number | undefined {
+  if (format === "standard") return player.consensusStandard;
+  if (format === "halfPpr") return player.consensusHalfPpr;
+  return player.consensusPpr;
 }
 
 export default function App() {
@@ -69,12 +72,23 @@ export default function App() {
   const [ktcValueMode, setKtcValueMode] = useState<"1qb" | "2qb">("2qb");
   const [ktcRankingIdsByMode, setKtcRankingIdsByMode] = useState<{ "1qb": string[]; "2qb": string[] }>({ "1qb": [], "2qb": [] });
 
-  const [adpFormat, setAdpFormat] = useState<AdpFormat>(() => {
+  const [adpFormat, setAdpFormat] = useState<ScoringFormat>(() => {
     if (typeof window === "undefined") return "halfPpr";
     const saved = window.localStorage.getItem("fantasy-board:adp-format");
     return saved === "standard" || saved === "halfPpr" || saved === "ppr" ? saved : "halfPpr";
   });
-  const [adpRankingIdsByFormat, setAdpRankingIdsByFormat] = useState<Record<AdpFormat, string[]>>({
+  const [adpRankingIdsByFormat, setAdpRankingIdsByFormat] = useState<Record<ScoringFormat, string[]>>({
+    standard: [...initialRankingIds],
+    halfPpr: [...initialRankingIds],
+    ppr: [...initialRankingIds],
+  });
+
+  const [consensusFormat, setConsensusFormat] = useState<ScoringFormat>(() => {
+    if (typeof window === "undefined") return "halfPpr";
+    const saved = window.localStorage.getItem("fantasy-board:consensus-format");
+    return saved === "standard" || saved === "halfPpr" || saved === "ppr" ? saved : "halfPpr";
+  });
+  const [consensusRankingIdsByFormat, setConsensusRankingIdsByFormat] = useState<Record<ScoringFormat, string[]>>({
     standard: [...initialRankingIds],
     halfPpr: [...initialRankingIds],
     ppr: [...initialRankingIds],
@@ -82,12 +96,14 @@ export default function App() {
 
   const [rankingIdsByList, setRankingIdsByList] = useState<Record<RankingsListKey, string[]>>(() => ({
     Rankings: [...initialRankingIds],
+    Consensus: [...initialRankingIds],
     KTC: [...initialRankingIds],
     ADP: [...initialRankingIds],
   }));
 
   const [tiersByPosByList, setTiersByPosByList] = useState<Record<RankingsListKey, TiersByPos>>(() => ({
     Rankings: emptyTiersByPos(),
+    Consensus: emptyTiersByPos(),
     KTC: emptyTiersByPos(),
     ADP: emptyTiersByPos(),
   }));
@@ -96,6 +112,11 @@ export default function App() {
     if (typeof window === "undefined") return;
     window.localStorage.setItem("fantasy-board:adp-format", adpFormat);
   }, [adpFormat]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("fantasy-board:consensus-format", consensusFormat);
+  }, [consensusFormat]);
 
   // Load KTC rankings from src/data/rankings.csv (supports 1QB "Value" + 2QB "SFValue")
   useEffect(() => {
@@ -121,7 +142,7 @@ export default function App() {
       .catch(() => {
         // ignore
       });
-  }, []);
+  }, [ktcValueMode]);
 
   // Load ADP rankings from src/data/adp.csv (Standard / Half-PPR / PPR).
   useEffect(() => {
@@ -162,7 +183,7 @@ export default function App() {
           return acc;
         }, []);
 
-        const sortBy = (format: AdpFormat) => {
+        const sortBy = (format: ScoringFormat) => {
           return [...players]
             .filter((player) => typeof getAdpValueForFormat(player, format) === "number")
             .sort((a, b) => {
@@ -192,7 +213,78 @@ export default function App() {
       .catch(() => {
         // ignore
       });
-  }, []);
+  }, [adpFormat]);
+
+  // Load consensus rankings from src/data/consensus.csv (Standard / Half-PPR / PPR).
+  useEffect(() => {
+    fetch(`${consensusCsvUrl}?v=${encodeURIComponent(CONSENSUS_LAST_UPDATED)}`)
+      .then((r) => r.text())
+      .then((csvText) => {
+        const rows = parseSimpleCsv(csvText);
+        if (!rows.length) return;
+
+        const header = (rows[0] ?? []).map((cell) => String(cell ?? "").trim().toLowerCase());
+
+        const idxId = header.findIndex((cell) => cell === "id");
+        const idxName = header.findIndex((cell) => cell === "name");
+        const idxPosition = header.findIndex((cell) => cell === "position" || cell === "pos");
+        const idxTeam = header.findIndex((cell) => cell === "team");
+        const idxStandard = header.findIndex((cell) => cell === "consensusstandard");
+        const idxHalfPpr = header.findIndex((cell) => cell === "consensushalfppr");
+        const idxPpr = header.findIndex((cell) => cell === "consensusppr");
+
+        const players = rows.slice(1).reduce<Player[]>((acc, row) => {
+          const id = String(row[idxId] ?? "").trim();
+          if (!id) return acc;
+
+          const name = String(row[idxName] ?? "").trim();
+          const position = String(row[idxPosition] ?? "").trim().toUpperCase() as Position;
+          const team = String(row[idxTeam] ?? "").trim();
+
+          acc.push({
+            id,
+            name,
+            position,
+            team: team || undefined,
+            consensusStandard: parseOptionalNumber(row[idxStandard]),
+            consensusHalfPpr: parseOptionalNumber(row[idxHalfPpr]),
+            consensusPpr: parseOptionalNumber(row[idxPpr]),
+          });
+
+          return acc;
+        }, []);
+
+        const sortBy = (format: ScoringFormat) => {
+          return [...players]
+            .filter((player) => typeof getConsensusValueForFormat(player, format) === "number")
+            .sort((a, b) => {
+              const aValue = getConsensusValueForFormat(a, format) ?? Number.POSITIVE_INFINITY;
+              const bValue = getConsensusValueForFormat(b, format) ?? Number.POSITIVE_INFINITY;
+              if (aValue !== bValue) return aValue - bValue;
+              return a.name.localeCompare(b.name);
+            })
+            .map((player) => player.id);
+        };
+
+        const nextIdsByFormat = {
+          standard: sortBy("standard"),
+          halfPpr: sortBy("halfPpr"),
+          ppr: sortBy("ppr"),
+        };
+
+        setConsensusPlayers(players);
+        setConsensusRankingIdsByFormat(nextIdsByFormat);
+
+        const chosen = nextIdsByFormat[consensusFormat];
+        if (chosen.length) {
+          setRankingIdsByList((prev) => ({ ...prev, Consensus: chosen }));
+          setTiersByPosByList((prev) => ({ ...prev, Consensus: emptyTiersByPos() }));
+        }
+      })
+      .catch(() => {
+        // ignore
+      });
+  }, [consensusFormat]);
 
   // Re-apply KTC ordering when switching between 1QB/2QB.
   useEffect(() => {
@@ -209,6 +301,13 @@ export default function App() {
       setRankingIdsByList((prev) => ({ ...prev, ADP: ids }));
     }
   }, [adpFormat, adpRankingIdsByFormat]);
+
+  useEffect(() => {
+    const ids = consensusRankingIdsByFormat[consensusFormat];
+    if (ids && ids.length) {
+      setRankingIdsByList((prev) => ({ ...prev, Consensus: ids }));
+    }
+  }, [consensusFormat, consensusRankingIdsByFormat]);
   const rankingIds = rankingIdsByList[rankingsListKey];
   const tiersByPos = tiersByPosByList[rankingsListKey];
 
@@ -236,11 +335,23 @@ export default function App() {
     }));
   }, [adpFormat, adpRankingIdsByFormat]);
 
+  const setConsensusAsRankings = useCallback(() => {
+    const ids = consensusRankingIdsByFormat[consensusFormat] ?? [];
+    if (!ids.length) return;
+
+    setRankingIdsByList((prev) => ({
+      ...prev,
+      Rankings: [...ids],
+    }));
+  }, [consensusFormat, consensusRankingIdsByFormat]);
+
   const setActiveSourceAsRankings = rankingsListKey === "ADP"
     ? setAdpAsRankings
-    : rankingsListKey === "KTC"
-      ? setKtcAsRankings
-      : undefined;
+    : rankingsListKey === "Consensus"
+      ? setConsensusAsRankings
+      : rankingsListKey === "KTC"
+        ? setKtcAsRankings
+        : undefined;
 
   // Board should reflect the active RankingsList tab (Rankings vs KTC)
   const boardRankingIds = rankingIdsByList[rankingsListKey];
@@ -294,12 +405,13 @@ export default function App() {
 
   // ----- players (base + ADP overrides + KTC overrides + imported extras) -----
   const [adpPlayers, setAdpPlayers] = useState<Player[]>([]);
+  const [consensusPlayers, setConsensusPlayers] = useState<Player[]>([]);
   const [ktcPlayers, setKtcPlayers] = useState<Player[]>([]);
 
   const basePlayers = useMemo(() => {
     const mergedById = new Map<string, Player>();
 
-    for (const source of [basePlayersArr, adpPlayers, ktcPlayers]) {
+    for (const source of [basePlayersArr, adpPlayers, consensusPlayers, ktcPlayers]) {
       for (const player of source) {
         const existing = mergedById.get(player.id);
         mergedById.set(player.id, {
@@ -310,7 +422,7 @@ export default function App() {
     }
 
     return Array.from(mergedById.values());
-  }, [adpPlayers, ktcPlayers]);
+  }, [adpPlayers, consensusPlayers, ktcPlayers]);
 
   const { extraPlayers, setExtraPlayers, allPlayersArr: allPlayers, playersById } = usePlayers({
     basePlayers,
@@ -338,10 +450,16 @@ export default function App() {
 
       setRankingIdsByList((prev) => ({
         Rankings: [id, ...prev.Rankings.filter((x) => x !== id)],
+        Consensus: [id, ...prev.Consensus.filter((x) => x !== id)],
         KTC: [id, ...prev.KTC.filter((x) => x !== id)],
         ADP: [id, ...prev.ADP.filter((x) => x !== id)],
       }));
       setAdpRankingIdsByFormat((prev) => ({
+        standard: [id, ...prev.standard.filter((x) => x !== id)],
+        halfPpr: [id, ...prev.halfPpr.filter((x) => x !== id)],
+        ppr: [id, ...prev.ppr.filter((x) => x !== id)],
+      }));
+      setConsensusRankingIdsByFormat((prev) => ({
         standard: [id, ...prev.standard.filter((x) => x !== id)],
         halfPpr: [id, ...prev.halfPpr.filter((x) => x !== id)],
         ppr: [id, ...prev.ppr.filter((x) => x !== id)],
@@ -724,6 +842,8 @@ export default function App() {
               onChangeKtcValueMode={setKtcValueMode}
               adpFormat={adpFormat}
               onChangeAdpFormat={setAdpFormat}
+              consensusFormat={consensusFormat}
+              onChangeConsensusFormat={setConsensusFormat}
               onSetAsRankings={setActiveSourceAsRankings}
             />
           </div>

@@ -6,7 +6,7 @@ export type TiersByPos = Record<Position, string[]>;
 // tiersByPos[pos] = ordered list of playerIds that START a new tier (Tier 2+), within that position ranking order.
 
 // List tabs (and XLSX sheet name for the primary rankings sheet).
-export const RANKINGS_LIST_KEYS = ["Rankings", "KTC", "ADP"] as const;
+export const RANKINGS_LIST_KEYS = ["Rankings", "Consensus", "KTC", "ADP"] as const;
 export type RankingsListKey = (typeof RANKINGS_LIST_KEYS)[number];
 
 export function emptyTiersByPos(): TiersByPos {
@@ -630,6 +630,7 @@ export type RankingsListsState<T> = Record<RankingsListKey, T>;
 export function emptyRankingIdsByList(initial: string[] = []): RankingsListsState<string[]> {
   return {
     Rankings: [...initial],
+    Consensus: [...initial],
     KTC: [...initial],
     ADP: [...initial],
   };
@@ -638,6 +639,7 @@ export function emptyRankingIdsByList(initial: string[] = []): RankingsListsStat
 export function emptyTiersByPosByList(): RankingsListsState<TiersByPos> {
   return {
     Rankings: emptyTiersByPos(),
+    Consensus: emptyTiersByPos(),
     KTC: emptyTiersByPos(),
     ADP: emptyTiersByPos(),
   };
