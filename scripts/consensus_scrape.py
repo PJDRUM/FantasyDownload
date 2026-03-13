@@ -18,12 +18,13 @@ from pathlib import Path
 
 import pandas as pd
 import requests
+from lxml import html
 
 
 URLS = {
-    "standard": "https://www.fantasypros.com/nfl/rankings/consensus-cheatsheets.php",
-    "halfPpr": "https://www.fantasypros.com/nfl/rankings/half-point-ppr-cheatsheets.php",
-    "ppr": "https://www.fantasypros.com/nfl/rankings/ppr-cheatsheets.php",
+    "standard": "https://www.fantasypros.com/nfl/cheatsheets/top-players.php",
+    "halfPpr": "https://www.fantasypros.com/nfl/cheatsheets/top-half-ppr-players.php",
+    "ppr": "https://www.fantasypros.com/nfl/cheatsheets/top-ppr-players.php",
 }
 
 MIN_ROWS_BY_FORMAT = {
@@ -388,63 +389,67 @@ def dedupe_rows(rows: list[dict]) -> list[dict]:
     return list(deduped.values())
 
 
-def fetch_consensus_rows(url: str) -> list[dict]:
-    response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=30)
-    response.raise_for_status()
 
-    tables = pd.read_html(StringIO(response.text))
-    if not tables:
-        raise RuntimeError(f"No tables found at {url}")
-
-    table = None
-    for candidate in tables:
-        columns = flatten_columns(candidate.columns)
-        lowered = [col.lower() for col in columns]
-        if any("player" in col for col in lowered) and any(("rk" in col) or ("rank" in col) or ("ecr" in col) for col in lowered):
-            table = candidate.copy()
-            table.columns = columns
-            break
-
-    if table is None:
-        raise RuntimeError(f"Could not find consensus rankings table at {url}")
-
-    columns = list(table.columns)
-    player_col = find_column(columns, "player")
-    pos_col = find_column(columns, "pos")
-    value_col = choose_value_column(columns)
-    team_col = next((col for col in columns if "team" in col.lower() and col != player_col), None)
-
+def parse_overall_rankings_from_list_items(page_text: str) -> list[dict]:
+    root = html.fromstring(page_text)
     rows: list[dict] = []
-    for _, row in table.iterrows():
-        position = extract_position(row.get(pos_col))
-        player_name, team = split_name_and_team(
-            row.get(player_col),
-            row.get(team_col) if team_col else None,
-            position,
-        )
-        value_raw = row.get(value_col)
+    seen: set[tuple[str, str, str]] = set()
 
-        if not player_name or pd.isna(value_raw):
+    item_nodes = root.xpath("//li")
+    pattern = re.compile(
+        r"^\s*(?P<rank>\d+)\.\s+(?P<name>.+?)\s+"
+        r"(?P<position>QB|RB|WR|TE|K|DST)-(?P<team>[A-Z]{2,3}|FA)\s*$"
+    )
+
+    for item in item_nodes:
+        text_value = " ".join(part.strip() for part in item.xpath(".//text()") if str(part).strip())
+        text_value = re.sub(r"\s+", " ", text_value).strip()
+        match = pattern.match(text_value)
+        if not match:
             continue
 
-        value_match = re.search(r"\d+(?:\.\d+)?", str(value_raw))
-        if not value_match:
-            continue
-
-        rank = float(value_match.group(0))
+        rank = float(match.group("rank"))
         if rank <= 0:
             continue
 
+        name = clean_player_name(match.group("name"))
+        position = extract_position(match.group("position"))
+        team = normalize_team(match.group("team"))
+
+        if not name or not position:
+            continue
+
+        key = (name.lower(), position, team or "")
+        if key in seen:
+            continue
+        seen.add(key)
+
         rows.append(
             {
-                "name": player_name,
+                "name": name,
                 "team": team,
                 "position": position,
                 "rank": round(rank, 1),
             }
         )
 
-    return dedupe_rows(rows)
+    return rows
+
+
+def fetch_consensus_rows(url: str) -> list[dict]:
+    response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=30)
+    response.raise_for_status()
+
+    rows = parse_overall_rankings_from_list_items(response.text)
+    rows = dedupe_rows(rows)
+
+    if rows:
+        return rows
+
+    raise RuntimeError(
+        f"Could not find overall consensus rankings rows at {url}. "
+        "The scrape-friendly cheat-sheet page did not expose ranked list items."
+    )
 
 
 def make_fallback_id(name: str, position: str | None, team: str | None, used_ids: set[str]) -> str:
