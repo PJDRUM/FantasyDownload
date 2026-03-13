@@ -485,6 +485,7 @@ export default function Cheatsheet(props: {
 
                             const drafted = draftedIds.has(id);
                             const posRank = udkPosRankById[id] ?? 0;
+                            const bye = (p as any).bye ?? (p as any).byeWeek ?? (p as any).bye_week;
 
                             return (
                               <button
@@ -547,15 +548,21 @@ export default function Cheatsheet(props: {
                                     </div>
                                   </div>
 
-                                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 1, fontSize: 11, opacity: 0.8, fontWeight: 750 }}>
-                                    <span>
-                                      {(() => {
-                                        const bye = (p as any).bye ?? (p as any).byeWeek ?? (p as any).bye_week;
-                                        return bye ? `Bye ${bye}` : "";
-                                      })()}
-                                    </span>
-                                    {typeof (p as any).adp !== "undefined" && (p as any).adp !== null && <span>ADP {(p as any).adp}</span>}
-                                  </div>
+                                  {bye ? (
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 6,
+                                        marginTop: 1,
+                                        fontSize: 11,
+                                        opacity: 0.8,
+                                        fontWeight: 750,
+                                      }}
+                                    >
+                                      <span>Bye {bye}</span>
+                                    </div>
+                                  ) : null}
                                 </div>
                               </button>
                             );
