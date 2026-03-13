@@ -67,6 +67,10 @@ export default function RankingsList(props: {
   tiersByPos: TiersByPos;
   draftedIds: Set<string>;
   onToggleDrafted: (id: string) => void;
+  hideKickers: boolean;
+  setHideKickers: React.Dispatch<React.SetStateAction<boolean>>;
+  hideDefenses: boolean;
+  setHideDefenses: React.Dispatch<React.SetStateAction<boolean>>;
 
   favoriteIds: Set<string>;
   onToggleFavorite: (id: string) => void;
@@ -100,6 +104,10 @@ export default function RankingsList(props: {
     tiersByPos,
     draftedIds,
     onToggleDrafted,
+    hideKickers,
+    setHideKickers,
+    hideDefenses,
+    setHideDefenses,
     favoriteIds,
     onToggleFavorite,
     activeTab,
@@ -218,9 +226,15 @@ export default function RankingsList(props: {
   }, [isOverall, rankingIds, playersById, activeTab]);
 
   const idsForTab = useMemo(() => {
-    if (!hideDraftedPlayers) return idsForTabBase;
-    return idsForTabBase.filter((id) => !draftedIds.has(id));
-  }, [idsForTabBase, hideDraftedPlayers, draftedIds]);
+    return idsForTabBase.filter((id) => {
+      const player = playersById[id];
+      if (!player) return false;
+      if (hideDraftedPlayers && draftedIds.has(id)) return false;
+      if (hideKickers && player.position === "K") return false;
+      if (hideDefenses && player.position === "DST") return false;
+      return true;
+    });
+  }, [idsForTabBase, playersById, hideDraftedPlayers, draftedIds, hideKickers, hideDefenses]);
 
   const originalIndexById = useMemo(() => {
     const next: Record<string, number> = {};
@@ -402,7 +416,7 @@ export default function RankingsList(props: {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: 0, gap: 10 }}>
-      {/* Top controls: Rankings tabs, then Position tabs + actions */}
+      {/* Top controls: actions, rankings tabs, then position tabs */}
       <div
         style={{
           display: "flex",
@@ -410,6 +424,151 @@ export default function RankingsList(props: {
           gap: 8,
         }}
       >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            flexWrap: "wrap",
+            justifyContent: "flex-start",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setHideDraftedPlayers((prev) => !prev)}
+            aria-pressed={hideDraftedPlayers}
+            aria-label={hideDraftedPlayers ? "Show Drafted" : "Hide Drafted"}
+            title={hideDraftedPlayers ? "Show Drafted" : "Hide Drafted"}
+            style={{
+              border: hideDraftedPlayers ? selectedPillBorder : "1px solid var(--border-0)",
+              borderRadius: 999,
+              padding: "8px 12px",
+              fontWeight: 900,
+              fontSize: 13,
+              cursor: "pointer",
+              background: hideDraftedPlayers ? selectedPillBg : "var(--panel-bg)",
+              color: hideDraftedPlayers ? "var(--text-0)" : "var(--text-1)",
+              display: "inline-flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 1,
+              lineHeight: 1,
+              boxShadow: hideDraftedPlayers ? selectedPillShadow : "none",
+              flexShrink: 0,
+            }}
+          >
+            <span>{hideDraftedPlayers ? "Show" : "Hide"}</span>
+            <span style={{ fontSize: 12, opacity: 0.95 }}>Drafted</span>
+          </button>
+
+          {presentPositions.has("K") && (
+            <button
+              type="button"
+              onClick={() => setHideKickers((prev) => !prev)}
+              aria-pressed={hideKickers}
+              aria-label={hideKickers ? "Show Kickers" : "Hide Kickers"}
+              title={hideKickers ? "Show Kickers" : "Hide Kickers"}
+              style={{
+                border: hideKickers ? selectedPillBorder : "1px solid var(--border-0)",
+                borderRadius: 999,
+                padding: "8px 12px",
+                fontWeight: 900,
+                fontSize: 13,
+                cursor: "pointer",
+                background: hideKickers ? selectedPillBg : "var(--panel-bg)",
+                color: hideKickers ? "var(--text-0)" : "var(--text-1)",
+                display: "inline-flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 1,
+                lineHeight: 1,
+                boxShadow: hideKickers ? selectedPillShadow : "none",
+                flexShrink: 0,
+              }}
+            >
+              <span>{hideKickers ? "Show" : "Hide"}</span>
+              <span style={{ fontSize: 12, opacity: 0.95 }}>Kickers</span>
+            </button>
+          )}
+
+          {presentPositions.has("DST") && (
+            <button
+              type="button"
+              onClick={() => setHideDefenses((prev) => !prev)}
+              aria-pressed={hideDefenses}
+              aria-label={hideDefenses ? "Show Defenses" : "Hide Defenses"}
+              title={hideDefenses ? "Show Defenses" : "Hide Defenses"}
+              style={{
+                border: hideDefenses ? selectedPillBorder : "1px solid var(--border-0)",
+                borderRadius: 999,
+                padding: "8px 12px",
+                fontWeight: 900,
+                fontSize: 13,
+                cursor: "pointer",
+                background: hideDefenses ? selectedPillBg : "var(--panel-bg)",
+                color: hideDefenses ? "var(--text-0)" : "var(--text-1)",
+                display: "inline-flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 1,
+                lineHeight: 1,
+                boxShadow: hideDefenses ? selectedPillShadow : "none",
+                flexShrink: 0,
+              }}
+            >
+              <span>{hideDefenses ? "Show" : "Hide"}</span>
+              <span style={{ fontSize: 12, opacity: 0.95 }}>Defenses</span>
+            </button>
+          )}
+
+          {(rankingsListKey === "KTC" || rankingsListKey === "ADP" || rankingsListKey === "Consensus") && onSetAsRankings && (
+            <button
+              type="button"
+              onClick={() => {
+                onSetAsRankings();
+                setSetAsRankingsFeedback(true);
+              }}
+              aria-label={setAsRankingsFeedback ? "Rankings Set" : "Set as Rankings"}
+              title={setAsRankingsFeedback ? "Rankings Set" : "Set as Rankings"}
+              style={{
+                border: setAsRankingsFeedback ? selectedPillBorder : "1px solid var(--border-0)",
+                borderRadius: 999,
+                padding: "8px 12px",
+                fontWeight: 900,
+                fontSize: 13,
+                cursor: "pointer",
+                background: setAsRankingsFeedback ? selectedPillBg : "var(--panel-bg)",
+                color: setAsRankingsFeedback ? "var(--text-0)" : "var(--text-1)",
+                display: "inline-flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 1,
+                lineHeight: 1,
+                boxShadow: setAsRankingsFeedback ? selectedPillShadow : "none",
+                transform: setAsRankingsFeedback ? "scale(1.03)" : "scale(1)",
+                transition: "transform 160ms ease, background 160ms ease, color 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
+                flexShrink: 0,
+              }}
+            >
+              {setAsRankingsFeedback ? (
+                <>
+                  <span>Rankings</span>
+                  <span style={{ fontSize: 12, opacity: 0.95 }}>Set!</span>
+                </>
+              ) : (
+                <>
+                  <span>Set as</span>
+                  <span style={{ fontSize: 12, opacity: 0.95 }}>Rankings</span>
+                </>
+              )}
+            </button>
+          )}
+        </div>
+
         <div
           style={{
             display: "flex",
@@ -565,88 +724,6 @@ export default function RankingsList(props: {
             })}
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              flexWrap: "wrap",
-              justifyContent: "flex-end",
-            }}
-          >
-            {(rankingsListKey === "KTC" || rankingsListKey === "ADP" || rankingsListKey === "Consensus") && onSetAsRankings && (
-              <button
-                type="button"
-                onClick={() => {
-                  onSetAsRankings();
-                  setSetAsRankingsFeedback(true);
-                }}
-                aria-label={setAsRankingsFeedback ? "Rankings Set" : "Set as Rankings"}
-                title={setAsRankingsFeedback ? "Rankings Set" : "Set as Rankings"}
-                style={{
-                  border: setAsRankingsFeedback ? selectedPillBorder : "1px solid var(--border-0)",
-                  borderRadius: 999,
-                  padding: "8px 12px",
-                  fontWeight: 900,
-                  fontSize: 13,
-                  cursor: "pointer",
-                  background: setAsRankingsFeedback ? selectedPillBg : "var(--panel-bg)",
-                  color: setAsRankingsFeedback ? "var(--text-0)" : "var(--text-1)",
-                  display: "inline-flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 1,
-                  lineHeight: 1,
-                  boxShadow: setAsRankingsFeedback ? selectedPillShadow : "none",
-                  transform: setAsRankingsFeedback ? "scale(1.03)" : "scale(1)",
-                  transition: "transform 160ms ease, background 160ms ease, color 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
-                  flexShrink: 0,
-                }}
-              >
-                {setAsRankingsFeedback ? (
-                  <>
-                    <span>Rankings</span>
-                    <span style={{ fontSize: 12, opacity: 0.95 }}>Set!</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Set as</span>
-                    <span style={{ fontSize: 12, opacity: 0.95 }}>Rankings</span>
-                  </>
-                )}
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={() => setHideDraftedPlayers((prev) => !prev)}
-              aria-pressed={hideDraftedPlayers}
-              aria-label={hideDraftedPlayers ? "Show Drafted" : "Hide Drafted"}
-              title={hideDraftedPlayers ? "Show Drafted" : "Hide Drafted"}
-              style={{
-                border: hideDraftedPlayers ? selectedPillBorder : "1px solid var(--border-0)",
-                borderRadius: 999,
-                padding: "8px 12px",
-                fontWeight: 900,
-                fontSize: 13,
-                cursor: "pointer",
-                background: hideDraftedPlayers ? selectedPillBg : "var(--panel-bg)",
-                color: hideDraftedPlayers ? "var(--text-0)" : "var(--text-1)",
-                display: "inline-flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 1,
-                lineHeight: 1,
-                boxShadow: hideDraftedPlayers ? selectedPillShadow : "none",
-                flexShrink: 0,
-              }}
-            >
-              <span>{hideDraftedPlayers ? "Show" : "Hide"}</span>
-              <span style={{ fontSize: 12, opacity: 0.95 }}>Drafted</span>
-            </button>
-          </div>
         </div>
       </div>
 

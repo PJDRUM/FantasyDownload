@@ -46,14 +46,13 @@ export default function TopBanner({ onExportRankings, onExportCheatsheetPdf, onI
   const settingsMenuRef = useRef<HTMLDivElement>(null);
 
   const podcastsAnchorRef = useRef<HTMLButtonElement>(null);
+  const podcastsMenuRef = useRef<HTMLDivElement>(null);
 
-  // Caret fades/moves in/out on hover state changes (slower).
-  const [podcastsHovering, setPodcastsHovering] = useState(false);
+  // The podcasts menu opens only on explicit click, but still uses the existing open/close animation.
+  const [podcastsActive, setPodcastsActive] = useState(false);
 
-  // Menu opens with a small delay, closes with a longer delay and slower "scroll" close animation.
+  // Menu opens immediately on click and closes with the existing "scroll" close animation.
   const [podcastsMenuPhase, setPodcastsMenuPhase] = useState<MenuPhase>("closed");
-  const openTimer = useRef<number | null>(null);
-  const closeDelayTimer = useRef<number | null>(null);
   const closeAnimTimer = useRef<number | null>(null);
 
   const [podcastsPos, setPodcastsPos] = useState<PodcastsMenuPos>({
@@ -64,11 +63,7 @@ export default function TopBanner({ onExportRankings, onExportCheatsheetPdf, onI
   });
 
   const clearMenuTimers = useCallback(() => {
-    if (openTimer.current) window.clearTimeout(openTimer.current);
-    if (closeDelayTimer.current) window.clearTimeout(closeDelayTimer.current);
     if (closeAnimTimer.current) window.clearTimeout(closeAnimTimer.current);
-    openTimer.current = null;
-    closeDelayTimer.current = null;
     closeAnimTimer.current = null;
   }, []);
 
@@ -109,7 +104,7 @@ export default function TopBanner({ onExportRankings, onExportCheatsheetPdf, onI
     });
   }, []);
 
-  const isPodcastsVisible = podcastsMenuPhase !== "closed" || podcastsHovering;
+  const isPodcastsVisible = podcastsMenuPhase !== "closed" || podcastsActive;
   const menuOpen = podcastsMenuPhase === "open";
   const menuClosing = podcastsMenuPhase === "closing";
 
@@ -156,41 +151,60 @@ export default function TopBanner({ onExportRankings, onExportCheatsheetPdf, onI
 
   const openPodcasts = useCallback(() => {
     clearMenuTimers();
-    setPodcastsHovering(true);
+    computePodcastsPosition();
+    setPodcastsActive(true);
+    setPodcastsMenuPhase("open");
+  }, [clearMenuTimers, computePodcastsPosition]);
 
-    if (podcastsMenuPhase === "open") return;
-    if (podcastsMenuPhase === "closing") setPodcastsMenuPhase("open");
-
-    openTimer.current = window.setTimeout(() => {
-      setPodcastsMenuPhase("open");
-      openTimer.current = null;
-    }, 110);
-  }, [podcastsMenuPhase, clearMenuTimers]);
-
-  const scheduleClosePodcasts = useCallback(() => {
-    // caret + hover box fade out (animated via CSS)
-    setPodcastsHovering(false);
-
+  const closePodcasts = useCallback(() => {
+    setPodcastsActive(false);
     clearMenuTimers();
 
-    // Keep the menu open a bit longer before starting to close.
-    closeDelayTimer.current = window.setTimeout(() => {
-      setPodcastsMenuPhase("closing");
-      closeDelayTimer.current = null;
+    if (podcastsMenuPhase === "closed") return;
+    setPodcastsMenuPhase("closing");
+    closeAnimTimer.current = window.setTimeout(() => {
+      setPodcastsMenuPhase("closed");
+      closeAnimTimer.current = null;
+    }, 560);
+  }, [podcastsMenuPhase, clearMenuTimers]);
 
-      // After the "scroll" close animation finishes, fully unmount.
-      closeAnimTimer.current = window.setTimeout(() => {
-        setPodcastsMenuPhase("closed");
-        closeAnimTimer.current = null;
-      }, 560);
-    }, 360);
-  }, [clearMenuTimers]);
+  const togglePodcasts = useCallback(() => {
+    if (menuOpen || menuClosing) {
+      closePodcasts();
+      return;
+    }
+
+    openPodcasts();
+  }, [menuOpen, menuClosing, openPodcasts, closePodcasts]);
 
   // Keep podcasts menu positioned and avoid flicker on fast transitions.
   useEffect(() => {
     if (!isPodcastsVisible) return;
     computePodcastsPosition();
-  }, [podcastsMenuPhase, podcastsHovering, isPodcastsVisible, computePodcastsPosition]);
+  }, [podcastsMenuPhase, podcastsActive, isPodcastsVisible, computePodcastsPosition]);
+
+  useEffect(() => {
+    if (!isPodcastsVisible) return;
+
+    const onMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+      if (podcastsAnchorRef.current?.contains(target)) return;
+      if (podcastsMenuRef.current?.contains(target)) return;
+      closePodcasts();
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closePodcasts();
+    };
+
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isPodcastsVisible, closePodcasts]);
 
   const podcastsPortal = useMemo(() => {
     if (!isPodcastsVisible) return null;
@@ -207,8 +221,8 @@ export default function TopBanner({ onExportRankings, onExportCheatsheetPdf, onI
       borderBottom: `${caretSize}px solid #ffffff`,
       filter: "drop-shadow(0 8px 18px rgba(0,0,0,0.35))",
       transition: "opacity 360ms ease, transform 360ms ease",
-      opacity: podcastsHovering ? 1 : 0,
-      transform: podcastsHovering ? "translateY(0px)" : "translateY(8px)",
+      opacity: podcastsActive ? 1 : 0,
+      transform: podcastsActive ? "translateY(0px)" : "translateY(8px)",
       pointerEvents: "none",
     };
 
@@ -220,8 +234,8 @@ export default function TopBanner({ onExportRankings, onExportCheatsheetPdf, onI
       borderTop: `${caretSize}px solid #ffffff`,
       filter: "drop-shadow(0 -8px 18px rgba(0,0,0,0.35))",
       transition: "opacity 360ms ease, transform 360ms ease",
-      opacity: podcastsHovering ? 1 : 0,
-      transform: podcastsHovering ? "translateY(0px)" : "translateY(-8px)",
+      opacity: podcastsActive ? 1 : 0,
+      transform: podcastsActive ? "translateY(0px)" : "translateY(-8px)",
       pointerEvents: "none",
     };
 
@@ -295,6 +309,7 @@ export default function TopBanner({ onExportRankings, onExportCheatsheetPdf, onI
                 (e.currentTarget as HTMLDivElement).style.background = "transparent";
               }}
               onClick={() => {
+                closePodcasts();
                 if (it.href) window.open(it.href, "_blank", "noopener,noreferrer");
               }}
             >
@@ -322,8 +337,7 @@ export default function TopBanner({ onExportRankings, onExportCheatsheetPdf, onI
 
     return createPortal(
       <div
-        onMouseEnter={() => openPodcasts()}
-        onMouseLeave={() => scheduleClosePodcasts()}
+        ref={podcastsMenuRef}
         style={{
           position: "fixed",
           left: podcastsPos.panelLeft,
@@ -351,15 +365,14 @@ export default function TopBanner({ onExportRankings, onExportCheatsheetPdf, onI
     );
   }, [
     isPodcastsVisible,
-    podcastsHovering,
+    podcastsActive,
     podcastsPos.panelLeft,
     podcastsPos.anchorTop,
     podcastsPos.anchorCenterX,
     podcastsPos.openUp,
     menuOpen,
     menuClosing,
-    openPodcasts,
-    scheduleClosePodcasts,
+    closePodcasts,
   ]);
 
   const navBtnBase: React.CSSProperties = {
@@ -431,15 +444,14 @@ export default function TopBanner({ onExportRankings, onExportCheatsheetPdf, onI
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px" }}>
           <button
             ref={podcastsAnchorRef}
-            onMouseEnter={() => openPodcasts()}
-            onMouseLeave={() => scheduleClosePodcasts()}
+            onClick={togglePodcasts}
             type="button"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             style={{
               ...navBtnBase,
-              cursor: "default",
-              background: podcastsHovering ? "rgba(255,255,255,0.08)" : "transparent",
+              cursor: "pointer",
+              background: isPodcastsVisible ? "rgba(255,255,255,0.08)" : "transparent",
             }}
           >
             <span>Podcasts</span>

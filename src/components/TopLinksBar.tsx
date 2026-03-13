@@ -3,6 +3,7 @@ import React from "react";
 
 // Toggle to remove the TopLinksBar entirely (renders nothing).
 const HIDE_TOPLINKSBAR = true;
+const SHOW_DISCORD_ONLY_WHEN_HIDDEN = true;
 
 type PrimaryLinkItem = {
   text: string;
@@ -51,7 +52,7 @@ const PRIMARY_LINKS: PrimaryLinkItem[] = [
 const SOCIAL_LINKS: SocialLinkItem[] = [
   {
     ariaLabel: "Discord",
-    href: "https://discord.gg/fantasyfootballers",
+    href: "https://discord.gg/XJts7K3v",
     iconSrc: "/topbar-icons/social-discord.png",
   },
   {
@@ -89,30 +90,36 @@ function TopbarImg({
 }
 
 export default function TopLinksBar() {
-  if (HIDE_TOPLINKSBAR) return null;
+  const socialLinksToRender = HIDE_TOPLINKSBAR && SHOW_DISCORD_ONLY_WHEN_HIDDEN
+    ? SOCIAL_LINKS.filter((item) => item.ariaLabel === "Discord")
+    : SOCIAL_LINKS;
+
+  if (HIDE_TOPLINKSBAR && socialLinksToRender.length === 0) return null;
 
   return (
     <div className="topLinksBar" role="navigation" aria-label="Top links">
       <div className="topLinksInner">
-        <div className="topLinksPrimary">
-          {PRIMARY_LINKS.map((item) => (
-            <a
-              key={item.href}
-              className="topLinksPrimaryItem"
-              href={item.href}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {item.iconSrc ? (
-                <TopbarImg src={item.iconSrc} className="topLinksIconImg" alt={item.iconAlt ?? ""} />
-              ) : null}
-              <span>{item.text}</span>
-            </a>
-          ))}
-        </div>
+        {!HIDE_TOPLINKSBAR && (
+          <div className="topLinksPrimary">
+            {PRIMARY_LINKS.map((item) => (
+              <a
+                key={item.href}
+                className="topLinksPrimaryItem"
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {item.iconSrc ? (
+                  <TopbarImg src={item.iconSrc} className="topLinksIconImg" alt={item.iconAlt ?? ""} />
+                ) : null}
+                <span>{item.text}</span>
+              </a>
+            ))}
+          </div>
+        )}
 
         <div className="topLinksSocial" aria-label="Social links">
-          {SOCIAL_LINKS.map((item) => (
+          {socialLinksToRender.map((item) => (
             <a
               key={item.href}
               className="topLinksSocialItem"

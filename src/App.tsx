@@ -88,6 +88,8 @@ export default function App() {
     const saved = window.localStorage.getItem("fantasy-board:consensus-format");
     return saved === "standard" || saved === "halfPpr" || saved === "ppr" ? saved : "halfPpr";
   });
+  const [hideKickers, setHideKickers] = useState(false);
+  const [hideDefenses, setHideDefenses] = useState(false);
   const [consensusRankingIdsByFormat, setConsensusRankingIdsByFormat] = useState<Record<ScoringFormat, string[]>>({
     standard: [...initialRankingIds],
     halfPpr: [...initialRankingIds],
@@ -354,7 +356,6 @@ export default function App() {
         : undefined;
 
   // Board should reflect the active RankingsList tab (Rankings vs KTC)
-  const boardRankingIds = rankingIdsByList[rankingsListKey];
   const boardTiersByPos = tiersByPosByList[rankingsListKey];
 
   const onUpdateTiersByPos = useCallback(
@@ -427,6 +428,15 @@ export default function App() {
   const { extraPlayers, setExtraPlayers, allPlayersArr: allPlayers, playersById } = usePlayers({
     basePlayers,
   });
+  const boardRankingIds = useMemo(() => {
+    return rankingIdsByList[rankingsListKey].filter((id) => {
+      const player = playersById[id];
+      if (!player) return false;
+      if (hideKickers && player.position === "K") return false;
+      if (hideDefenses && player.position === "DST") return false;
+      return true;
+    });
+  }, [rankingIdsByList, rankingsListKey, playersById, hideKickers, hideDefenses]);
 
   const addPlayerToRankings = useCallback(
     (name: string, position: Position) => {
@@ -832,6 +842,10 @@ export default function App() {
               tiersByPos={tiersByPos}
               draftedIds={draftedIds}
               onToggleDrafted={toggleDrafted}
+              hideKickers={hideKickers}
+              setHideKickers={setHideKickers}
+              hideDefenses={hideDefenses}
+              setHideDefenses={setHideDefenses}
               favoriteIds={favoriteIds}
               onToggleFavorite={toggleFavorite}
               activeTab={activeTab}
