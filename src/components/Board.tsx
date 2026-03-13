@@ -1,8 +1,7 @@
 import React from "react";
 import type { Position, Player } from "../models/Player";
 import { DndContext, DragEndEvent } from "@dnd-kit/core";
-import { SortableContext } from "@dnd-kit/sortable";
-import { horizontalListSortingStrategy } from "@dnd-kit/sortable";
+import { SortableContext, horizontalListSortingStrategy, rectSortingStrategy } from "@dnd-kit/sortable";
 import { BoardCell, CellContent } from "./BoardCell";
 import Cheatsheet from "./Cheatsheet";
 import TeamsBoard from "./TeamsBoard";
@@ -208,6 +207,26 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
     draftSlots,
   ]);
 
+
+
+  const rankingBoardSortableIds = React.useMemo(() => {
+    const ids: string[] = [];
+
+    for (let roundIndex = 0; roundIndex < rounds; roundIndex += 1) {
+      const reverse = isReverseRound(roundIndex, draftStyle);
+
+      for (let teamIndex = 0; teamIndex < teams; teamIndex += 1) {
+        const pickIndex = reverse
+          ? roundIndex * teams + (teams - 1 - teamIndex)
+          : roundIndex * teams + teamIndex;
+
+        const playerId = rankingIds[pickIndex];
+        if (playerId) ids.push(playerId);
+      }
+    }
+
+    return ids;
+  }, [draftStyle, rankingIds, rounds, teams]);
   const pillBase: React.CSSProperties = {
     boxSizing: "border-box",
     padding: "7px 12px",
@@ -637,7 +656,7 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
         {boardTab === "Rankings Board" ? (
           <div ref={tableSizeRef}>
             <DndContext sensors={allowRankingsReorder ? sensors : undefined} onDragEnd={allowRankingsReorder ? onBoardDragEnd : undefined}>
-              <SortableContext items={rankingIds} strategy={horizontalListSortingStrategy}>
+              <SortableContext items={rankingBoardSortableIds} strategy={rectSortingStrategy}>
                 {Array.from({ length: rounds }).map((_, roundIndex) => {
                   const reverse = isReverseRound(roundIndex, draftStyle);
                   const roundNumber = roundIndex + 1;
