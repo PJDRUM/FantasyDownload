@@ -16,6 +16,11 @@ export type Player = {
   /** Average Draft Position (optional; provided via import/export). */
   adp?: number;
 
+  /** Redraft ADP by scoring format (optional; populated from FantasyPros-style ADP imports). */
+  adpStandard?: number;
+  adpHalfPpr?: number;
+  adpPpr?: number;
+
   /** Player age (optional; provided via import/export). */
   age?: number;
 

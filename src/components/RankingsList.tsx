@@ -14,6 +14,7 @@ import { KTC_LAST_UPDATED, ADP_LAST_UPDATED } from "../data/rankings";
 const ENABLE_PLAYER_PROFILES_ON_RANKINGS_LIST = false; // Toggle to temporarily disable PlayerProfiles on the Rankings list.
 
 type Tab = "Overall" | Position;
+type AdpFormat = "standard" | "halfPpr" | "ppr";
 
 function isFiniteNumber(x: unknown): x is number {
   return typeof x === "number" && Number.isFinite(x);
@@ -27,6 +28,18 @@ function getRiskRaw(p: Player): number | undefined {
 function getUpsideRaw(p: Player): number | undefined {
   const v = (p as any).upside ?? (p as any).upsideScore ?? (p as any).upside_score;
   return isFiniteNumber(v) ? v : undefined;
+}
+
+function getSelectedAdp(p: Player, adpFormat: AdpFormat): number | undefined {
+  const direct =
+    adpFormat === "standard"
+      ? p.adpStandard
+      : adpFormat === "halfPpr"
+        ? p.adpHalfPpr
+        : p.adpPpr;
+
+  if (isFiniteNumber(direct)) return direct;
+  return isFiniteNumber(p.adp) ? p.adp : undefined;
 }
 
 export default function RankingsList(props: {
@@ -58,6 +71,11 @@ export default function RankingsList(props: {
   // KTC value display mode
   ktcValueMode?: "1qb" | "2qb";
   onChangeKtcValueMode?: (m: "1qb" | "2qb") => void;
+
+  // ADP scoring format
+  adpFormat?: AdpFormat;
+  onChangeAdpFormat?: (format: AdpFormat) => void;
+
   onSetAsRankings?: () => void;
 }) {
   const {
@@ -75,6 +93,8 @@ export default function RankingsList(props: {
     getColor,
     ktcValueMode = "2qb",
     onChangeKtcValueMode,
+    adpFormat = "halfPpr",
+    onChangeAdpFormat,
     onSetAsRankings,
   } = props;
 
@@ -546,7 +566,7 @@ export default function RankingsList(props: {
             })}
           </div>
 
-          {rankingsListKey === "KTC" && onSetAsRankings && (
+          {(rankingsListKey === "KTC" || rankingsListKey === "ADP") && onSetAsRankings && (
             <button
               type="button"
               onClick={() => {
@@ -787,9 +807,7 @@ export default function RankingsList(props: {
 
             {showMetricColumn && (
               <div style={{ textAlign: "center" }}>
-                {rankingsListKey !== "KTC" ? (
-                  "ADP"
-                ) : (
+                {rankingsListKey === "KTC" ? (
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                     {onChangeKtcValueMode && (
                       <div
@@ -837,6 +855,71 @@ export default function RankingsList(props: {
                     )}
                     <span>Value</span>
                   </div>
+                ) : rankingsListKey === "ADP" ? (
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                    {onChangeAdpFormat && (
+                      <div
+                        role="group"
+                        aria-label="ADP scoring format"
+                        style={{
+                          display: "inline-flex",
+                          gap: 0,
+                          border: "1px solid rgba(255,255,255,0.18)",
+                          borderRadius: 999,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => onChangeAdpFormat("standard")}
+                          style={{
+                            padding: "2px 8px",
+                            fontSize: 11,
+                            lineHeight: "16px",
+                            cursor: "pointer",
+                            border: "none",
+                            color: "rgba(255,255,255,0.9)",
+                            background: adpFormat === "standard" ? "rgba(255,255,255,0.16)" : "transparent",
+                          }}
+                        >
+                          STD
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onChangeAdpFormat("halfPpr")}
+                          style={{
+                            padding: "2px 8px",
+                            fontSize: 11,
+                            lineHeight: "16px",
+                            cursor: "pointer",
+                            border: "none",
+                            color: "rgba(255,255,255,0.9)",
+                            background: adpFormat === "halfPpr" ? "rgba(255,255,255,0.16)" : "transparent",
+                          }}
+                        >
+                          HALF
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onChangeAdpFormat("ppr")}
+                          style={{
+                            padding: "2px 8px",
+                            fontSize: 11,
+                            lineHeight: "16px",
+                            cursor: "pointer",
+                            border: "none",
+                            color: "rgba(255,255,255,0.9)",
+                            background: adpFormat === "ppr" ? "rgba(255,255,255,0.16)" : "transparent",
+                          }}
+                        >
+                          PPR
+                        </button>
+                      </div>
+                    )}
+                    <span>ADP</span>
+                  </div>
+                ) : (
+                  "ADP"
                 )}
               </div>
             )}
@@ -892,7 +975,7 @@ export default function RankingsList(props: {
               const adpOrValue = rankingsListKey === "KTC"
                 ? (ktcValueMode === "1qb" ? (p as any).value : (p as any).sfValue)
                 : rankingsListKey === "ADP"
-                  ? stableRank
+                  ? getSelectedAdp(p, adpFormat)
                   : p.adp;
               const riskRaw = getRiskRaw(p);
               const upsideRaw = getUpsideRaw(p);

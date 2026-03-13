@@ -1,7 +1,13 @@
 // src/App.tsx
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { players as basePlayersArr, rankingIds as initialRankingIds } from "./data/rankings";
+import {
+  players as basePlayersArr,
+  rankingIds as initialRankingIds,
+  KTC_LAST_UPDATED,
+  ADP_LAST_UPDATED,
+} from "./data/rankings";
 import rankingsCsvUrl from "./data/rankings.csv";
+import adpCsvUrl from "./data/adp.csv";
 import type { Position, Player } from "./models/Player";
 
 import RankingsList from "./components/RankingsList";
@@ -12,6 +18,7 @@ import TopBanner from "./components/TopBanner";
 import { posColor } from "./utils/posColor";
 import { exportCheatsheetPdf } from "./utils/cheatsheetPdf";
 import { usePlayers } from "./state/usePlayers";
+import { parseSimpleCsv } from "./utils/csv";
 
 import {
   emptyTiersByPos,
@@ -25,6 +32,24 @@ import {
 
 import { DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
+
+type AdpFormat = "standard" | "halfPpr" | "ppr";
+
+function parseOptionalNumber(raw: unknown): number | undefined {
+  if (raw == null) return undefined;
+  const text = String(raw).trim();
+  if (!text) return undefined;
+
+  const normalized = text.replace(/,/g, "");
+  const value = Number(normalized);
+  return Number.isFinite(value) ? value : undefined;
+}
+
+function getAdpValueForFormat(player: Player, format: AdpFormat): number | undefined {
+  if (format === "standard") return player.adpStandard;
+  if (format === "halfPpr") return player.adpHalfPpr;
+  return player.adpPpr;
+}
 
 export default function App() {
   const [teams, setTeams] = useState(12);
@@ -44,6 +69,17 @@ export default function App() {
   const [ktcValueMode, setKtcValueMode] = useState<"1qb" | "2qb">("2qb");
   const [ktcRankingIdsByMode, setKtcRankingIdsByMode] = useState<{ "1qb": string[]; "2qb": string[] }>({ "1qb": [], "2qb": [] });
 
+  const [adpFormat, setAdpFormat] = useState<AdpFormat>(() => {
+    if (typeof window === "undefined") return "halfPpr";
+    const saved = window.localStorage.getItem("fantasy-board:adp-format");
+    return saved === "standard" || saved === "halfPpr" || saved === "ppr" ? saved : "halfPpr";
+  });
+  const [adpRankingIdsByFormat, setAdpRankingIdsByFormat] = useState<Record<AdpFormat, string[]>>({
+    standard: [...initialRankingIds],
+    halfPpr: [...initialRankingIds],
+    ppr: [...initialRankingIds],
+  });
+
   const [rankingIdsByList, setRankingIdsByList] = useState<Record<RankingsListKey, string[]>>(() => ({
     Rankings: [...initialRankingIds],
     KTC: [...initialRankingIds],
@@ -56,10 +92,14 @@ export default function App() {
     ADP: emptyTiersByPos(),
   }));
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("fantasy-board:adp-format", adpFormat);
+  }, [adpFormat]);
 
   // Load KTC rankings from src/data/rankings.csv (supports 1QB "Value" + 2QB "SFValue")
   useEffect(() => {
-    fetch(rankingsCsvUrl)
+    fetch(`${rankingsCsvUrl}?v=${encodeURIComponent(KTC_LAST_UPDATED)}`)
       .then((r) => r.text())
       .then((csvText) => {
         const parsed1qb = importRankingsCsv({ csvText, sortBy: "value" });
@@ -83,6 +123,77 @@ export default function App() {
       });
   }, []);
 
+  // Load ADP rankings from src/data/adp.csv (Standard / Half-PPR / PPR).
+  useEffect(() => {
+    fetch(`${adpCsvUrl}?v=${encodeURIComponent(ADP_LAST_UPDATED)}`)
+      .then((r) => r.text())
+      .then((csvText) => {
+        const rows = parseSimpleCsv(csvText);
+        if (!rows.length) return;
+
+        const header = (rows[0] ?? []).map((cell) => String(cell ?? "").trim().toLowerCase());
+
+        const idxId = header.findIndex((cell) => cell === "id");
+        const idxName = header.findIndex((cell) => cell === "name");
+        const idxPosition = header.findIndex((cell) => cell === "position" || cell === "pos");
+        const idxTeam = header.findIndex((cell) => cell === "team");
+        const idxStandard = header.findIndex((cell) => cell === "adpstandard");
+        const idxHalfPpr = header.findIndex((cell) => cell === "adphalfppr");
+        const idxPpr = header.findIndex((cell) => cell === "adpppr");
+
+        const players = rows.slice(1).reduce<Player[]>((acc, row) => {
+          const id = String(row[idxId] ?? "").trim();
+          if (!id) return acc;
+
+          const name = String(row[idxName] ?? "").trim();
+          const position = String(row[idxPosition] ?? "").trim().toUpperCase() as Position;
+          const team = String(row[idxTeam] ?? "").trim();
+
+          acc.push({
+            id,
+            name,
+            position,
+            team: team || undefined,
+            adpStandard: parseOptionalNumber(row[idxStandard]),
+            adpHalfPpr: parseOptionalNumber(row[idxHalfPpr]),
+            adpPpr: parseOptionalNumber(row[idxPpr]),
+          });
+
+          return acc;
+        }, []);
+
+        const sortBy = (format: AdpFormat) => {
+          return [...players]
+            .filter((player) => typeof getAdpValueForFormat(player, format) === "number")
+            .sort((a, b) => {
+              const aValue = getAdpValueForFormat(a, format) ?? Number.POSITIVE_INFINITY;
+              const bValue = getAdpValueForFormat(b, format) ?? Number.POSITIVE_INFINITY;
+              if (aValue !== bValue) return aValue - bValue;
+              return a.name.localeCompare(b.name);
+            })
+            .map((player) => player.id);
+        };
+
+        const nextIdsByFormat = {
+          standard: sortBy("standard"),
+          halfPpr: sortBy("halfPpr"),
+          ppr: sortBy("ppr"),
+        };
+
+        setAdpPlayers(players);
+        setAdpRankingIdsByFormat(nextIdsByFormat);
+
+        const chosen = nextIdsByFormat[adpFormat];
+        if (chosen.length) {
+          setRankingIdsByList((prev) => ({ ...prev, ADP: chosen }));
+          setTiersByPosByList((prev) => ({ ...prev, ADP: emptyTiersByPos() }));
+        }
+      })
+      .catch(() => {
+        // ignore
+      });
+  }, []);
+
   // Re-apply KTC ordering when switching between 1QB/2QB.
   useEffect(() => {
     const ids = ktcValueMode === "1qb" ? ktcRankingIdsByMode["1qb"] : ktcRankingIdsByMode["2qb"];
@@ -90,6 +201,14 @@ export default function App() {
       setRankingIdsByList((prev) => ({ ...prev, KTC: ids }));
     }
   }, [ktcValueMode, ktcRankingIdsByMode]);
+
+  // Re-apply ADP ordering when switching between Standard / Half-PPR / PPR.
+  useEffect(() => {
+    const ids = adpRankingIdsByFormat[adpFormat];
+    if (ids && ids.length) {
+      setRankingIdsByList((prev) => ({ ...prev, ADP: ids }));
+    }
+  }, [adpFormat, adpRankingIdsByFormat]);
   const rankingIds = rankingIdsByList[rankingsListKey];
   const tiersByPos = tiersByPosByList[rankingsListKey];
 
@@ -106,6 +225,22 @@ export default function App() {
       return { ...prev, Rankings: [...prev.KTC] };
     });
   }, []);
+
+  const setAdpAsRankings = useCallback(() => {
+    const ids = adpRankingIdsByFormat[adpFormat] ?? [];
+    if (!ids.length) return;
+
+    setRankingIdsByList((prev) => ({
+      ...prev,
+      Rankings: [...ids],
+    }));
+  }, [adpFormat, adpRankingIdsByFormat]);
+
+  const setActiveSourceAsRankings = rankingsListKey === "ADP"
+    ? setAdpAsRankings
+    : rankingsListKey === "KTC"
+      ? setKtcAsRankings
+      : undefined;
 
   // Board should reflect the active RankingsList tab (Rankings vs KTC)
   const boardRankingIds = rankingIdsByList[rankingsListKey];
@@ -157,9 +292,25 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<"Overall" | Position>("Overall");
   const [boardTab, setBoardTab] = useState<BoardTab>("Rankings Board");
 
-  // ----- players (base + KTC overrides + imported extras) -----
+  // ----- players (base + ADP overrides + KTC overrides + imported extras) -----
+  const [adpPlayers, setAdpPlayers] = useState<Player[]>([]);
   const [ktcPlayers, setKtcPlayers] = useState<Player[]>([]);
-  const basePlayers = useMemo(() => [...basePlayersArr, ...ktcPlayers], [ktcPlayers]);
+
+  const basePlayers = useMemo(() => {
+    const mergedById = new Map<string, Player>();
+
+    for (const source of [basePlayersArr, adpPlayers, ktcPlayers]) {
+      for (const player of source) {
+        const existing = mergedById.get(player.id);
+        mergedById.set(player.id, {
+          ...existing,
+          ...player,
+        });
+      }
+    }
+
+    return Array.from(mergedById.values());
+  }, [adpPlayers, ktcPlayers]);
 
   const { extraPlayers, setExtraPlayers, allPlayersArr: allPlayers, playersById } = usePlayers({
     basePlayers,
@@ -189,6 +340,11 @@ export default function App() {
         Rankings: [id, ...prev.Rankings.filter((x) => x !== id)],
         KTC: [id, ...prev.KTC.filter((x) => x !== id)],
         ADP: [id, ...prev.ADP.filter((x) => x !== id)],
+      }));
+      setAdpRankingIdsByFormat((prev) => ({
+        standard: [id, ...prev.standard.filter((x) => x !== id)],
+        halfPpr: [id, ...prev.halfPpr.filter((x) => x !== id)],
+        ppr: [id, ...prev.ppr.filter((x) => x !== id)],
       }));
     },
     [setExtraPlayers, setRankingIdsByList]
@@ -566,7 +722,9 @@ export default function App() {
               onMove={moveRankings}
               ktcValueMode={ktcValueMode}
               onChangeKtcValueMode={setKtcValueMode}
-              onSetAsRankings={setKtcAsRankings}
+              adpFormat={adpFormat}
+              onChangeAdpFormat={setAdpFormat}
+              onSetAsRankings={setActiveSourceAsRankings}
             />
           </div>
 

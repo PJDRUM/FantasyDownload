@@ -29,7 +29,9 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "cache:headshots": "tsx scripts/cacheHeadshots.ts",
-    "import:profiles": "node scripts/import-player-profiles.mjs"
+    "import:profiles": "node scripts/import-player-profiles.mjs",
+    "adp:setup": "bash scripts/adp_update.sh --setup-only",
+    "adp:update": "bash scripts/adp_update.sh"
   },
   "eslintConfig": {
     "extends": [
