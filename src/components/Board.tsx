@@ -5,10 +5,11 @@ import { SortableContext } from "@dnd-kit/sortable";
 import { horizontalListSortingStrategy } from "@dnd-kit/sortable";
 import { BoardCell, CellContent } from "./BoardCell";
 import Cheatsheet from "./Cheatsheet";
+import TeamsBoard from "./TeamsBoard";
 import type { TiersByPos } from "../utils/xlsxRankings";
 
 export type DraftStyle = "Snake Draft" | "Regular Draft" | "Third Round Reversal";
-export type BoardTab = "Rankings Board" | "Draft Board" | "Cheatsheet";
+export type BoardTab = "Rankings Board" | "Draft Board" | "Cheatsheet" | "Teams";
 
 function isReverseRound(roundIndex: number, style: DraftStyle) {
   if (style === "Regular Draft") return false;
@@ -166,6 +167,7 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
   }, [newPlayerName, newPlayerPos, onAddPlayer]);
 
   const isCheat = boardTab === "Cheatsheet";
+  const isTeams = boardTab === "Teams";
   const isDraft = boardTab === "Draft Board";
   const isRank = boardTab === "Rankings Board";
 
@@ -404,6 +406,32 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                 title="Cheatsheet"
               >
                 Cheatsheet
+              </button>
+            </div>
+
+            {/* Teams as separate segmented control */}
+            <div
+              style={{
+                boxSizing: "border-box",
+                display: "flex",
+                gap: 4,
+                alignItems: "center",
+                padding: 4,
+                borderRadius: 999,
+                border: "1px solid var(--border-0)",
+                background: "var(--panel-bg)",
+              }}
+            >
+              <button
+                className="tabBtn"
+                onClick={() => setBoardTab("Teams")}
+                style={{
+                  ...pillBase,
+                  ...(isTeams ? pillActive : {}),
+                }}
+                title="Teams"
+              >
+                Teams
               </button>
             </div>
           </div>
@@ -696,6 +724,23 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
               onUpdateTiersByPos={cheatsheetOnUpdateTiersByPos}
               draftedIds={draftedIds}
               onToggleDrafted={onToggleDrafted}
+              posColor={posColor}
+            />
+          </div>
+        ) : boardTab === "Teams" ? (
+          <div
+            style={{
+              minWidth: tableSize?.width,
+              minHeight: tableSize?.height,
+            }}
+          >
+            <TeamsBoard
+              teams={teams}
+              rounds={rounds}
+              draftStyle={draftStyle}
+              draftSlots={draftSlots}
+              teamNames={teamNames}
+              playersById={playersById}
               posColor={posColor}
             />
           </div>

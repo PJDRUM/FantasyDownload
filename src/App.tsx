@@ -100,6 +100,13 @@ export default function App() {
     });
   }
 
+  const setKtcAsRankings = useCallback(() => {
+    setRankingIdsByList((prev) => {
+      if (!prev.KTC.length) return prev;
+      return { ...prev, Rankings: [...prev.KTC] };
+    });
+  }, []);
+
   // Board should reflect the active RankingsList tab (Rankings vs KTC)
   const boardRankingIds = rankingIdsByList[rankingsListKey];
   const boardTiersByPos = tiersByPosByList[rankingsListKey];
@@ -559,6 +566,7 @@ export default function App() {
               onMove={moveRankings}
               ktcValueMode={ktcValueMode}
               onChangeKtcValueMode={setKtcValueMode}
+              onSetAsRankings={setKtcAsRankings}
             />
           </div>
 
