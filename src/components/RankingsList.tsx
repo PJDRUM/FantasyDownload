@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import type { Player, Position } from "../models/Player";
 import type { RankingsListKey, TiersByPos } from "../utils/xlsxRankings";
-import { RANKINGS_LIST_KEYS } from "../utils/xlsxRankings";
 import { posColor } from "../utils/posColor";
 
 import TierBar, { TierOverlay, type TierScope } from "./Rankings/TierBar";
@@ -80,15 +79,8 @@ export default function RankingsList(props: {
   } = props;
 
   const [profilePlayerId, setProfilePlayerId] = useState<string | null>(null);
-  const [rankingsFormat, setRankingsFormat] = useState<"Dynasty" | "Redraft">("Dynasty");
   const [hideDraftedPlayers, setHideDraftedPlayers] = useState(false);
   const [setAsRankingsFeedback, setSetAsRankingsFeedback] = useState(false);
-
-  useLayoutEffect(() => {
-    // Keep the secondary tab valid when switching between Dynasty/Redraft.
-    if (rankingsFormat === "Redraft" && rankingsListKey === "KTC") setRankingsListKey("ADP");
-    if (rankingsFormat === "Dynasty" && rankingsListKey === "ADP") setRankingsListKey("KTC");
-  }, [rankingsFormat, rankingsListKey, setRankingsListKey]);
 
   useEffect(() => {
     if (!setAsRankingsFeedback) return;
@@ -97,6 +89,7 @@ export default function RankingsList(props: {
   }, [setAsRankingsFeedback]);
 
   const hideRankColumn = false;
+  const showMetricColumn = rankingsListKey !== "Rankings";
 
   // Only the Rankings tab has tier overlays.
   const showTiers = rankingsListKey === "Rankings" && activeTab !== "Overall";
@@ -320,17 +313,33 @@ export default function RankingsList(props: {
     return { raw, date: parts[0], time: parts.slice(1).join(" ") };
   }, []);
 
+  const rankingTabs = useMemo(
+    () => [
+      { key: "Rankings" as const, ariaLabel: "Rankings", labelTop: "Rankings", labelBottom: null, updated: null },
+      { key: "ADP" as const, ariaLabel: "Redraft ADP", labelTop: "Redraft", labelBottom: "ADP", updated: adpUpdated },
+      { key: "KTC" as const, ariaLabel: "Dynasty Values", labelTop: "Dynasty", labelBottom: "Values", updated: ktcUpdated },
+    ],
+    [adpUpdated, ktcUpdated]
+  );
+
+  const activeRankingUpdated = useMemo(() => {
+    if (rankingsListKey === "ADP") return adpUpdated;
+    if (rankingsListKey === "KTC") return ktcUpdated;
+    return null;
+  }, [adpUpdated, ktcUpdated, rankingsListKey]);
+
   // Selected-tab style: neutral translucent overlay (no green)
   const selectedPillBg = "rgba(255,255,255,0.14)";
   const selectedPillBorder = "1px solid rgba(255,255,255,0.16)";
   const selectedPillShadow = "inset 0 0 0 1px rgba(0,0,0,0.18)";
 
   const gridCols = useMemo(() => {
-    const cols: string[] = ["28px", "minmax(0, 3fr)", "minmax(36px, 0.8fr)"]; // #, Player, ADP/Value
+    const cols: string[] = ["28px", "minmax(0, 3fr)"]; // #, Player
+    if (showMetricColumn) cols.push("minmax(36px, 0.8fr)");
     if (showRisk) cols.push("minmax(54px, 1fr)");
     if (showUpside) cols.push("minmax(54px, 1fr)");
     return cols.join(" ");
-  }, [showRisk, showUpside]);
+  }, [showMetricColumn, showRisk, showUpside]);
 
   const leftGutterPx = 44; // space reserved for + / − button
   const rowCardPaddingPx = 10; // matches row card horizontal padding
@@ -349,65 +358,195 @@ export default function RankingsList(props: {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: 0, gap: 10 }}>
-      {/* Format tabs: Redraft / Dynasty */}
+      {/* Top controls: Rankings tabs + Hide Drafted, then Position tabs + Set as Rankings */}
       <div
         style={{
           display: "flex",
-          alignItems: "center",
+          flexDirection: "column",
           gap: 8,
-          flexWrap: "wrap",
-          justifyContent: "space-between",
         }}
       >
         <div
           style={{
             display: "flex",
-            gap: 6,
-            padding: 4,
-            borderRadius: 999,
-            border: "1px solid var(--border-0)",
-            background: "var(--panel-bg)",
-            width: "fit-content",
-            maxWidth: "100%",
-            overflowX: "visible",
-            scrollbarWidth: "none",
-            msOverflowStyle: "none",
+            alignItems: "center",
+            gap: 8,
+            flexWrap: "wrap",
+            justifyContent: "space-between",
           }}
         >
-          {(["Redraft", "Dynasty"] as const).map((k) => {
-            const active = k === rankingsFormat;
-            return (
-              <button
-                key={k}
-                onClick={() => setRankingsFormat(k)}
-                aria-label={k}
-                title={k}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              flexWrap: "wrap",
+              minWidth: 0,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                gap: 6,
+                alignItems: "center",
+                padding: 4,
+                borderRadius: 999,
+                border: "1px solid var(--border-0)",
+                background: "var(--panel-bg)",
+                width: "fit-content",
+                maxWidth: "100%",
+                overflowX: "auto",
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
+              }}
+            >
+              {rankingTabs.map(({ key, ariaLabel, labelTop, labelBottom }) => {
+                const active = key === rankingsListKey;
+
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setRankingsListKey(key)}
+                    aria-label={ariaLabel}
+                    title={ariaLabel}
+                    style={{
+                      border: active ? selectedPillBorder : "none",
+                      borderRadius: 999,
+                      padding: labelBottom ? "8px 14px" : "10px 14px",
+                      fontWeight: 900,
+                      fontSize: 13,
+                      cursor: "pointer",
+                      background: active ? selectedPillBg : "transparent",
+                      color: active ? "var(--text-0)" : "var(--text-1)",
+                      whiteSpace: "nowrap",
+                      display: "inline-flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: labelBottom ? 2 : 0,
+                      minWidth: labelBottom ? 92 : undefined,
+                      lineHeight: 1,
+                      boxShadow: active ? selectedPillShadow : "none",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <span>{labelTop}</span>
+                    {labelBottom && <span style={{ fontSize: 12, opacity: 0.95 }}>{labelBottom}</span>}
+                  </button>
+                );
+              })}
+            </div>
+
+            {activeRankingUpdated && (
+              <span
+                aria-label={`Updated: ${activeRankingUpdated.raw}`}
+                title={`Updated: ${activeRankingUpdated.raw}`}
                 style={{
-                  border: active ? selectedPillBorder : "none",
-                  borderRadius: 999,
-                  padding: "10px 14px",
-                  fontWeight: 900,
-                  fontSize: 13,
-                  cursor: "pointer",
-                  background: active ? selectedPillBg : "transparent",
-                  color: active ? "var(--text-0)" : "var(--text-1)",
-                  whiteSpace: "nowrap",
-                  display: "inline-flex",
-                  alignItems: "center",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "flex-start",
                   justifyContent: "center",
-                  gap: 8,
-                  lineHeight: 1,
-                  boxShadow: active ? selectedPillShadow : "none",
+                  gap: 2,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  opacity: 0.65,
+                  lineHeight: 1.05,
+                  whiteSpace: "nowrap",
+                  pointerEvents: "none",
+                  flexShrink: 0,
                 }}
               >
-                {k}
-              </button>
-            );
-          })}
+                <span>Updated:</span>
+                <span>{activeRankingUpdated.date}</span>
+                {activeRankingUpdated.time && <span>{activeRankingUpdated.time}</span>}
+              </span>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setHideDraftedPlayers((prev) => !prev)}
+            aria-pressed={hideDraftedPlayers}
+            aria-label={hideDraftedPlayers ? "Show Drafted" : "Hide Drafted"}
+            title={hideDraftedPlayers ? "Show Drafted" : "Hide Drafted"}
+            style={{
+              border: hideDraftedPlayers ? selectedPillBorder : "1px solid var(--border-0)",
+              borderRadius: 999,
+              padding: "10px 14px",
+              fontWeight: 900,
+              fontSize: 13,
+              cursor: "pointer",
+              background: hideDraftedPlayers ? selectedPillBg : "var(--panel-bg)",
+              color: hideDraftedPlayers ? "var(--text-0)" : "var(--text-1)",
+              whiteSpace: "nowrap",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: hideDraftedPlayers ? selectedPillShadow : "none",
+              flexShrink: 0,
+            }}
+          >
+            {hideDraftedPlayers ? "Show Drafted" : "Hide Drafted"}
+          </button>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          {rankingsFormat === "Dynasty" && rankingsListKey === "KTC" && onSetAsRankings && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            flexWrap: "wrap",
+            justifyContent: "space-between",
+          }}
+        >
+          {/* Position tabs */}
+          <div
+            style={{
+              boxSizing: "border-box",
+              display: "flex",
+              gap: 6,
+              alignItems: "center",
+              padding: 4,
+              borderRadius: 999,
+              border: "1px solid var(--border-0)",
+              background: "var(--panel-bg)",
+              width: "fit-content",
+              maxWidth: "100%",
+              overflowX: "auto",
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
+            }}
+          >
+            {tabs.map((t) => {
+              const active = t === activeTab;
+              const activeBg =
+                !active ? "transparent" : t === "Overall" ? selectedPillBg : posColor(t as Position);
+              const activeBorder = active ? (t === "Overall" ? selectedPillBorder : "none") : "none";
+              const activeShadow = active ? (t === "Overall" ? selectedPillShadow : "none") : "none";
+
+              return (
+                <button
+                  key={t}
+                  onClick={() => setActiveTab(t)}
+                  style={{
+                    border: activeBorder,
+                    borderRadius: 999,
+                    padding: "8px 12px",
+                    fontWeight: 900,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    background: activeBg,
+                    boxShadow: activeShadow,
+                    color: active ? "var(--text-0)" : "var(--text-1)",
+                  }}
+                >
+                  {t}
+                </button>
+              );
+            })}
+          </div>
+
+          {rankingsListKey === "KTC" && onSetAsRankings && (
             <button
               type="button"
               onClick={() => {
@@ -432,198 +571,12 @@ export default function RankingsList(props: {
                 boxShadow: setAsRankingsFeedback ? selectedPillShadow : "none",
                 transform: setAsRankingsFeedback ? "scale(1.03)" : "scale(1)",
                 transition: "transform 160ms ease, background 160ms ease, color 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
+                flexShrink: 0,
               }}
             >
               {setAsRankingsFeedback ? "Rankings Set!" : "Set as Rankings"}
             </button>
           )}
-
-          <button
-            type="button"
-            onClick={() => setHideDraftedPlayers((prev) => !prev)}
-            aria-pressed={hideDraftedPlayers}
-            aria-label={hideDraftedPlayers ? "Show Drafted" : "Hide Drafted"}
-            title={hideDraftedPlayers ? "Show Drafted" : "Hide Drafted"}
-            style={{
-              border: hideDraftedPlayers ? selectedPillBorder : "1px solid var(--border-0)",
-              borderRadius: 999,
-              padding: "10px 14px",
-              fontWeight: 900,
-              fontSize: 13,
-              cursor: "pointer",
-              background: hideDraftedPlayers ? selectedPillBg : "var(--panel-bg)",
-              color: hideDraftedPlayers ? "var(--text-0)" : "var(--text-1)",
-              whiteSpace: "nowrap",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: hideDraftedPlayers ? selectedPillShadow : "none",
-            }}
-          >
-            {hideDraftedPlayers ? "Show Drafted" : "Hide Drafted"}
-          </button>
-        </div>
-      </div>
-
-      {/* Top bar: Rankings set tabs */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          flexWrap: "wrap",
-          justifyContent: "space-between",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            gap: 6,
-            padding: 4,
-            borderRadius: 999,
-            border: "1px solid var(--border-0)",
-            background: "var(--panel-bg)",
-            width: "fit-content",
-            maxWidth: "100%",
-            overflowX: "visible",
-            scrollbarWidth: "none",
-            msOverflowStyle: "none",
-          }}
-        >
-          {(rankingsFormat === "Redraft" ? (["Rankings", "ADP"] as const) : (["Rankings", "KTC"] as const)).map((k) => {
-            const active = k === rankingsListKey;
-            const label = k;
-            const isUpdatedTab = k === "KTC" || k === "ADP";
-            const updated = k === "KTC" ? ktcUpdated : adpUpdated;
-
-            return isUpdatedTab ? (
-              <span key={k} style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
-                <button
-                  onClick={() => setRankingsListKey(k)}
-                  aria-label={label}
-                  title={label}
-                  style={{
-                    border: active ? selectedPillBorder : "none",
-                    borderRadius: 999,
-                    padding: "10px 14px",
-                    fontWeight: 900,
-                    fontSize: 13,
-                    cursor: "pointer",
-                    background: active ? selectedPillBg : "transparent",
-                    color: active ? "var(--text-0)" : "var(--text-1)",
-                    whiteSpace: "nowrap",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                    lineHeight: 1,
-                    boxShadow: active ? selectedPillShadow : "none",
-                  }}
-                >
-                  {label}
-                </button>
-                {active && (
-                  <span
-                    aria-label={`Updated: ${updated.raw}`}
-                    title={`Updated: ${updated.raw}`}
-                    style={{
-                      position: "absolute",
-                      left: "calc(100% + 8px)",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "flex-start",
-                      gap: 2,
-                      fontSize: 10,
-                      fontWeight: 700,
-                      opacity: 0.65,
-                      lineHeight: 1.05,
-                      whiteSpace: "nowrap",
-                      pointerEvents: "none",
-                    }}
-                  >
-                    <span>Updated:</span>
-                    <span>{updated.date}</span>
-                    {updated.time && <span>{updated.time}</span>}
-                  </span>
-                )}
-              </span>
-            ) : (
-              <button
-                key={k}
-                onClick={() => setRankingsListKey(k)}
-                aria-label={label}
-                title={label}
-                style={{
-                  border: active ? selectedPillBorder : "none",
-                  borderRadius: 999,
-                  padding: "10px 14px",
-                  fontWeight: 900,
-                  fontSize: 13,
-                  cursor: "pointer",
-                  background: active ? selectedPillBg : "transparent",
-                  color: active ? "var(--text-0)" : "var(--text-1)",
-                  whiteSpace: "nowrap",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  lineHeight: 1,
-                  boxShadow: active ? selectedPillShadow : "none",
-                }}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Position tabs */}
-        <div
-          style={{
-            boxSizing: "border-box",
-            display: "flex",
-            gap: 6,
-            alignItems: "center",
-            padding: 4,
-            borderRadius: 999,
-            border: "1px solid var(--border-0)",
-            background: "var(--panel-bg)",
-            width: "fit-content",
-            maxWidth: "100%",
-            overflowX: "auto",
-            scrollbarWidth: "none",
-            msOverflowStyle: "none",
-          }}
-        >
-          {tabs.map((t) => {
-            const active = t === activeTab;
-            const activeBg =
-              !active ? "transparent" : t === "Overall" ? selectedPillBg : posColor(t as Position);
-            const activeBorder = active ? (t === "Overall" ? selectedPillBorder : "none") : "none";
-            const activeShadow = active ? (t === "Overall" ? selectedPillShadow : "none") : "none";
-
-            return (
-              <button
-                key={t}
-                onClick={() => setActiveTab(t)}
-                style={{
-                  border: activeBorder,
-                  borderRadius: 999,
-                  padding: "8px 12px",
-                  fontWeight: 900,
-                  fontSize: 13,
-                  cursor: "pointer",
-                  background: activeBg,
-                  boxShadow: activeShadow,
-                  color: active ? "var(--text-0)" : "var(--text-1)",
-                }}
-              >
-                {t}
-              </button>
-            );
-          })}
         </div>
       </div>
 
@@ -832,60 +785,61 @@ export default function RankingsList(props: {
             <div>{hideRankColumn ? "\u00A0" : "#"}</div>
             <div>Player</div>
 
-            {/* ADP / Value header (KTC toggle moved ABOVE the "Value" label) */}
-            <div style={{ textAlign: "center" }}>
-              {rankingsListKey !== "KTC" ? (
-                "ADP"
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                  {onChangeKtcValueMode && (
-                    <div
-                      role="group"
-                      aria-label="KTC value mode"
-                      style={{
-                        display: "inline-flex",
-                        gap: 0,
-                        border: "1px solid rgba(255,255,255,0.18)",
-                        borderRadius: 999,
-                        overflow: "hidden",
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => onChangeKtcValueMode("1qb")}
+            {showMetricColumn && (
+              <div style={{ textAlign: "center" }}>
+                {rankingsListKey !== "KTC" ? (
+                  "ADP"
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                    {onChangeKtcValueMode && (
+                      <div
+                        role="group"
+                        aria-label="KTC value mode"
                         style={{
-                          padding: "2px 8px",
-                          fontSize: 11,
-                          lineHeight: "16px",
-                          cursor: "pointer",
-                          border: "none",
-                          color: "rgba(255,255,255,0.9)",
-                          background: ktcValueMode === "1qb" ? "rgba(255,255,255,0.16)" : "transparent",
+                          display: "inline-flex",
+                          gap: 0,
+                          border: "1px solid rgba(255,255,255,0.18)",
+                          borderRadius: 999,
+                          overflow: "hidden",
                         }}
                       >
-                        1QB
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onChangeKtcValueMode("2qb")}
-                        style={{
-                          padding: "2px 8px",
-                          fontSize: 11,
-                          lineHeight: "16px",
-                          cursor: "pointer",
-                          border: "none",
-                          color: "rgba(255,255,255,0.9)",
-                          background: ktcValueMode === "2qb" ? "rgba(255,255,255,0.16)" : "transparent",
-                        }}
-                      >
-                        2QB
-                      </button>
-                    </div>
-                  )}
-                  <span>Value</span>
-                </div>
-              )}
-            </div>
+                        <button
+                          type="button"
+                          onClick={() => onChangeKtcValueMode("1qb")}
+                          style={{
+                            padding: "2px 8px",
+                            fontSize: 11,
+                            lineHeight: "16px",
+                            cursor: "pointer",
+                            border: "none",
+                            color: "rgba(255,255,255,0.9)",
+                            background: ktcValueMode === "1qb" ? "rgba(255,255,255,0.16)" : "transparent",
+                          }}
+                        >
+                          1QB
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onChangeKtcValueMode("2qb")}
+                          style={{
+                            padding: "2px 8px",
+                            fontSize: 11,
+                            lineHeight: "16px",
+                            cursor: "pointer",
+                            border: "none",
+                            color: "rgba(255,255,255,0.9)",
+                            background: ktcValueMode === "2qb" ? "rgba(255,255,255,0.16)" : "transparent",
+                          }}
+                        >
+                          2QB
+                        </button>
+                      </div>
+                    )}
+                    <span>Value</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {showRisk && <div style={{ textAlign: "center" }}>Risk</div>}
             {showUpside && <div style={{ textAlign: "center" }}>Upside</div>}
@@ -1145,20 +1099,22 @@ export default function RankingsList(props: {
                           </div>
                         </div>
 
-                        <div
-                          style={{
-                            textAlign: "center",
-                            fontWeight: 900,
-                            fontSize: "clamp(10px, 2.2vw, 12px)",
-                            color: "rgba(255,255,255,0.78)",
-                          }}
-                        >
-                          {typeof adpOrValue === "number"
-                            ? rankingsListKey === "KTC"
-                              ? Math.round(adpOrValue).toLocaleString()
-                              : adpOrValue.toFixed(1)
-                            : "—"}
-                        </div>
+                        {showMetricColumn && (
+                          <div
+                            style={{
+                              textAlign: "center",
+                              fontWeight: 900,
+                              fontSize: "clamp(10px, 2.2vw, 12px)",
+                              color: "rgba(255,255,255,0.78)",
+                            }}
+                          >
+                            {typeof adpOrValue === "number"
+                              ? rankingsListKey === "KTC"
+                                ? Math.round(adpOrValue).toLocaleString()
+                                : adpOrValue.toFixed(1)
+                              : "—"}
+                          </div>
+                        )}
 
                         {showRisk && (
                           <div style={{ display: "flex", justifyContent: "center" }}>
