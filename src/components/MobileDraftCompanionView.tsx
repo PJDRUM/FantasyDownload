@@ -56,10 +56,11 @@ function MobileRankingRow(props: {
   rank: number;
   drafted: boolean;
   sortable: boolean;
+  tabletMode: boolean;
   posColor: (pos: Position) => string;
   onToggleDrafted: (id: string) => void;
 }) {
-  const { id, index, rank, player, drafted, sortable, posColor, onToggleDrafted } = props;
+  const { id, index, rank, player, drafted, sortable, tabletMode, posColor, onToggleDrafted } = props;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
     disabled: !sortable,
@@ -81,10 +82,10 @@ function MobileRankingRow(props: {
         transition,
         opacity: isDragging ? 0.88 : 1,
         display: "grid",
-        gridTemplateColumns: "42px 24px minmax(0, 1fr) 32px",
+        gridTemplateColumns: tabletMode ? "50px 32px minmax(0, 1fr) 38px" : "42px 24px minmax(0, 1fr) 32px",
         alignItems: "center",
-        gap: 8,
-        padding: "6px 10px",
+        gap: tabletMode ? 10 : 8,
+        padding: tabletMode ? "10px 14px" : "6px 10px",
         borderBottom: "1px solid rgba(255,255,255,0.08)",
         background: rowBg,
         overflow: "hidden",
@@ -95,12 +96,12 @@ function MobileRankingRow(props: {
         onClick={() => onToggleDrafted(id)}
         aria-label={drafted ? "Undraft player" : "Draft player"}
         style={{
-          height: 24,
+          height: tabletMode ? 30 : 24,
           border: "1px solid rgba(255,255,255,0.12)",
           borderRadius: 999,
           background: drafted ? "rgba(239, 68, 68, 0.18)" : "rgba(34, 197, 94, 0.18)",
           color: drafted ? "rgb(239, 68, 68)" : accentGreen,
-          fontSize: 14,
+          fontSize: tabletMode ? 16 : 14,
           fontWeight: 900,
           lineHeight: 1,
           cursor: "pointer",
@@ -112,7 +113,7 @@ function MobileRankingRow(props: {
       <div
         style={{
           color: "rgba(255,255,255,0.72)",
-          fontSize: 12,
+          fontSize: tabletMode ? 14 : 12,
           fontWeight: 900,
           textAlign: "center",
           lineHeight: 1,
@@ -125,7 +126,7 @@ function MobileRankingRow(props: {
         <div
           style={{
             color: "var(--text-0)",
-            fontSize: 12,
+            fontSize: tabletMode ? 14 : 12,
             fontWeight: 900,
             lineHeight: 1.1,
             whiteSpace: "nowrap",
@@ -136,11 +137,11 @@ function MobileRankingRow(props: {
         >
           {player.name}
         </div>
-        <div style={{ marginTop: 2, display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.68)", fontSize: 10, fontWeight: 700 }}>
+        <div style={{ marginTop: tabletMode ? 3 : 2, display: "flex", alignItems: "center", gap: tabletMode ? 7 : 6, color: "rgba(255,255,255,0.68)", fontSize: tabletMode ? 11 : 10, fontWeight: 700 }}>
           <span
             style={{
-              width: 6,
-              height: 6,
+              width: tabletMode ? 7 : 6,
+              height: tabletMode ? 7 : 6,
               borderRadius: 999,
               background: posColor(player.position),
               flex: "0 0 auto",
@@ -157,12 +158,12 @@ function MobileRankingRow(props: {
         {...attributes}
         {...listeners}
         style={{
-          width: 28,
-          height: 28,
+          width: tabletMode ? 34 : 28,
+          height: tabletMode ? 34 : 28,
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
-          borderRadius: 8,
+          borderRadius: tabletMode ? 9 : 8,
           border: "1px solid rgba(255,255,255,0.1)",
           background: "rgba(255,255,255,0.06)",
           color: sortable ? "rgba(255,255,255,0.84)" : "rgba(255,255,255,0.38)",
@@ -171,7 +172,7 @@ function MobileRankingRow(props: {
           opacity: sortable ? 1 : 0.65,
         }}
       >
-        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <svg width={tabletMode ? "16" : "14"} height={tabletMode ? "16" : "14"} viewBox="0 0 20 20" fill="none" aria-hidden="true">
           <path d="M4 5h12M4 10h12M4 15h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </svg>
       </button>
@@ -215,6 +216,9 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
   } = props;
 
   const collapsedPeekHeight = 18;
+  const [viewportWidth, setViewportWidth] = useState<number>(() =>
+    typeof window === "undefined" ? 390 : window.innerWidth
+  );
   const initialHeight =
     typeof window === "undefined" ? 340 : Math.min(Math.max(window.innerHeight * 0.42, 180), window.innerHeight - 132);
   const [sheetHeight, setSheetHeight] = useState<number>(initialHeight);
@@ -223,6 +227,7 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
   const [hideDrafted, setHideDrafted] = useState(false);
   const dragStateRef = useRef<{ startY: number; startHeight: number } | null>(null);
   const mobileSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const isTablet = viewportWidth >= 768;
 
   const visibleRankingIds = useMemo(
     () => rankingIds.filter((id) => Boolean(playersById[id])),
@@ -267,16 +272,17 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
 
   useEffect(() => {
     const onResize = () => {
+      setViewportWidth(window.innerWidth);
       setSheetHeight((prev) => {
         const minHeight = collapsedPeekHeight;
-        const maxHeight = Math.max(minHeight + 80, window.innerHeight - 120);
+        const maxHeight = Math.max(minHeight + 80, window.innerHeight - (isTablet ? 150 : 120));
         return Math.min(Math.max(prev, minHeight), maxHeight);
       });
     };
 
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, []);
+  }, [isTablet]);
 
   useEffect(() => {
     const onPointerMove = (event: PointerEvent) => {
@@ -321,9 +327,9 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
           gap: 6,
           alignItems: "center",
           justifyContent: "space-between",
-          padding: 2,
+          padding: isTablet ? 4 : 2,
           borderRadius: 999,
-          margin: "8px 8px 0",
+          margin: isTablet ? "12px 12px 0" : "8px 8px 0",
         }}
       >
         <div
@@ -335,21 +341,21 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
             display: "flex",
             gap: 2,
             alignItems: "center",
-            padding: 2,
+            padding: isTablet ? 3 : 2,
           }}
         >
           <button
             type="button"
             onClick={() => setBoardTab("Rankings Board")}
             style={{
-              padding: "5px 10px",
+              padding: isTablet ? "8px 14px" : "5px 10px",
               borderRadius: 999,
               border: boardTab === "Rankings Board" ? "1px solid rgba(255,255,255,0.18)" : "1px solid transparent",
               background: boardTab === "Rankings Board" ? "rgba(255,255,255,0.1)" : "transparent",
               color: "var(--text-0)",
               fontWeight: 800,
-              fontSize: 10,
-              lineHeight: "12px",
+              fontSize: isTablet ? 12 : 10,
+              lineHeight: isTablet ? "14px" : "12px",
               cursor: "pointer",
               whiteSpace: "nowrap",
             }}
@@ -360,14 +366,14 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
             type="button"
             onClick={() => setBoardTab("Draft Board")}
             style={{
-              padding: "5px 10px",
+              padding: isTablet ? "8px 14px" : "5px 10px",
               borderRadius: 999,
               border: boardTab === "Draft Board" ? "1px solid rgba(255,255,255,0.18)" : "1px solid transparent",
               background: boardTab === "Draft Board" ? "rgba(255,255,255,0.1)" : "transparent",
               color: "var(--text-0)",
               fontWeight: 800,
-              fontSize: 10,
-              lineHeight: "12px",
+              fontSize: isTablet ? 12 : 10,
+              lineHeight: isTablet ? "14px" : "12px",
               cursor: "pointer",
               whiteSpace: "nowrap",
             }}
@@ -379,21 +385,21 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 4,
+            gap: isTablet ? 6 : 4,
           }}
         >
           <button
             type="button"
             onClick={onImportRankings}
             style={{
-              padding: "6px 9px",
+              padding: isTablet ? "8px 12px" : "6px 9px",
               borderRadius: 999,
               border: "1px solid rgba(255,255,255,0.12)",
               background: "rgba(38,38,38,0.92)",
               color: "var(--text-0)",
               fontWeight: 800,
-              fontSize: 9,
-              lineHeight: "11px",
+              fontSize: isTablet ? 11 : 9,
+              lineHeight: isTablet ? "13px" : "11px",
               cursor: "pointer",
               whiteSpace: "nowrap",
               boxShadow: "0 14px 28px rgba(0,0,0,0.32)",
@@ -405,14 +411,14 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
             type="button"
             onClick={onExportRankings}
             style={{
-              padding: "6px 9px",
+              padding: isTablet ? "8px 12px" : "6px 9px",
               borderRadius: 999,
               border: "1px solid rgba(255,255,255,0.12)",
               background: "rgba(38,38,38,0.92)",
               color: "var(--text-0)",
               fontWeight: 800,
-              fontSize: 9,
-              lineHeight: "11px",
+              fontSize: isTablet ? 11 : 9,
+              lineHeight: isTablet ? "13px" : "11px",
               cursor: "pointer",
               whiteSpace: "nowrap",
               boxShadow: "0 14px 28px rgba(0,0,0,0.32)",
@@ -456,6 +462,7 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
           onDraftBoardDragEnd={onDraftBoardDragEnd}
           availableTabs={["Rankings Board", "Draft Board"]}
           mobileMode
+          tabletMode={isTablet}
           allowDraftBoardReorder={false}
           showTabSwitcher={false}
         />
@@ -471,8 +478,8 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
           display: "flex",
           flexDirection: "column",
           zIndex: 20,
-          borderTopLeftRadius: 26,
-          borderTopRightRadius: 26,
+          borderTopLeftRadius: isTablet ? 30 : 26,
+          borderTopRightRadius: isTablet ? 30 : 26,
           border: "1px solid rgba(255,255,255,0.08)",
           background: "linear-gradient(180deg, rgb(18,26,61) 0%, rgb(8,12,28) 100%)",
           boxShadow: "0 -24px 50px rgba(0,0,0,0.42)",
@@ -495,7 +502,7 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
               dragStateRef.current = { startY: event.clientY, startHeight: sheetHeight };
             }}
             style={{
-              padding: "8px 12px 6px",
+              padding: isTablet ? "12px 16px 10px" : "8px 12px 6px",
               touchAction: "none",
               cursor: "ns-resize",
               userSelect: "none",
@@ -507,10 +514,10 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                 height: 5,
                 borderRadius: 999,
                 background: "rgba(255,255,255,0.28)",
-                margin: "0 auto 8px",
+                margin: isTablet ? "0 auto 10px" : "0 auto 8px",
               }}
             />
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: isTablet ? 8 : 6 }}>
               <input
                 type="text"
                 value={query}
@@ -521,13 +528,13 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                 style={{
                   flex: 1,
                   minWidth: 0,
-                  padding: "9px 11px",
-                  borderRadius: 12,
+                  padding: isTablet ? "12px 14px" : "9px 11px",
+                  borderRadius: isTablet ? 14 : 12,
                   border: "1px solid rgba(255,255,255,0.12)",
                   background: "rgba(255,255,255,0.08)",
                   color: "var(--text-0)",
                   outline: "none",
-                  fontSize: 13,
+                  fontSize: isTablet ? 15 : 13,
                   fontWeight: 700,
                 }}
               />
@@ -537,12 +544,12 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                 onPointerDown={(event) => event.stopPropagation()}
                 style={{
                   flex: "0 0 auto",
-                  padding: "9px 10px",
-                  borderRadius: 12,
+                  padding: isTablet ? "12px 14px" : "9px 10px",
+                  borderRadius: isTablet ? 14 : 12,
                   border: "1px solid rgba(255,255,255,0.12)",
                   background: hideDrafted ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.08)",
                   color: "var(--text-0)",
-                  fontSize: 11,
+                  fontSize: isTablet ? 13 : 11,
                   fontWeight: 800,
                   lineHeight: 1,
                   whiteSpace: "nowrap",
@@ -555,9 +562,9 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
             <div
               style={{
                 display: "flex",
-                gap: 5,
+                gap: isTablet ? 8 : 5,
                 overflowX: "auto",
-                marginTop: 8,
+                marginTop: isTablet ? 10 : 8,
                 paddingBottom: 2,
                 scrollbarWidth: "none",
                 msOverflowStyle: "none",
@@ -572,12 +579,12 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                     onClick={() => setActivePosition(tab)}
                     style={{
                       flex: "0 0 auto",
-                      padding: "6px 10px",
+                      padding: isTablet ? "8px 13px" : "6px 10px",
                       borderRadius: 999,
                       border: active ? "1px solid rgba(255,255,255,0.2)" : "1px solid rgba(255,255,255,0.1)",
                       background: active ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.05)",
                       color: "var(--text-0)",
-                      fontSize: 10,
+                      fontSize: isTablet ? 12 : 10,
                       fontWeight: 800,
                       cursor: "pointer",
                       whiteSpace: "nowrap",
@@ -613,6 +620,7 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                     player={playersById[id]}
                     drafted={draftedIds.has(id)}
                     sortable={activePosition === "ALL"}
+                    tabletMode={isTablet}
                     posColor={posColor}
                     onToggleDrafted={onToggleDrafted}
                   />

@@ -34,18 +34,19 @@ function MobileRankingsBoardCard(props: {
   drafted?: boolean;
   bg: string;
   marginRight?: number;
+  tabletMode?: boolean;
 }) {
-  const { label, player, favorite = false, drafted = false, bg, marginRight = 3 } = props;
+  const { label, player, favorite = false, drafted = false, bg, marginRight = 3, tabletMode = false } = props;
 
   return (
     <div
       style={{
         boxSizing: "border-box",
-        width: 82,
-        minWidth: 82,
-        height: 48,
+        width: tabletMode ? 104 : 82,
+        minWidth: tabletMode ? 104 : 82,
+        height: tabletMode ? 64 : 48,
         marginRight,
-        padding: 4,
+        padding: tabletMode ? 5 : 4,
         borderRadius: 11,
         border: "1px solid rgba(255,255,255,0.12)",
         outline: "1px solid rgba(0,0,0,0.18)",
@@ -96,7 +97,7 @@ function MobileRankingsBoardCard(props: {
       >
         <div
           style={{
-            fontSize: 8,
+            fontSize: tabletMode ? 9 : 8,
             lineHeight: 1,
             fontWeight: 650,
             color: "rgba(255,255,255,0.78)",
@@ -110,8 +111,8 @@ function MobileRankingsBoardCard(props: {
           <>
             <div
               style={{
-                marginTop: 4,
-                fontSize: 7,
+                marginTop: tabletMode ? 5 : 4,
+                fontSize: tabletMode ? 8 : 7,
                 lineHeight: 1,
                 fontWeight: 650,
                 color: "rgba(255,255,255,0.76)",
@@ -126,8 +127,8 @@ function MobileRankingsBoardCard(props: {
 
             <div
               style={{
-                marginTop: 3,
-                fontSize: 7,
+                marginTop: tabletMode ? 4 : 3,
+                fontSize: tabletMode ? 8 : 7,
                 lineHeight: 1.06,
                 fontWeight: 700,
                 color: "rgba(255,255,255,0.97)",
@@ -209,6 +210,7 @@ export default function Board(props: {
   onAssignPlayerToDraftSlot: (slotIndex: number, playerId: string) => void;
   availableTabs?: BoardTab[];
   mobileMode?: boolean;
+  tabletMode?: boolean;
   allowDraftBoardReorder?: boolean;
   showTabSwitcher?: boolean;
 }) {
@@ -244,6 +246,7 @@ export default function Board(props: {
     onAssignPlayerToDraftSlot,
     availableTabs,
     mobileMode = false,
+    tabletMode = false,
     allowDraftBoardReorder = true,
     showTabSwitcher = true,
   } = props;
@@ -320,13 +323,14 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
   const isTeams = boardTab === "Teams";
   const isDraft = boardTab === "Draft Board";
   const isRank = boardTab === "Rankings Board";
-  const boardCellWidth = mobileMode ? 82 : 140;
-  const boardCellMinWidth = mobileMode ? 82 : 140;
-  const draftBoardCellMinHeight = mobileMode ? 48 : undefined;
-  const boardCellRadius = mobileMode ? 12 : 16;
-  const boardCellPadding = mobileMode ? 3 : 8;
-  const boardCellMarginRight = mobileMode ? 3 : 4;
-  const showBoardCellImages = !mobileMode;
+  const compactMobileMode = mobileMode && !tabletMode;
+  const boardCellWidth = mobileMode ? (tabletMode ? 108 : 82) : 140;
+  const boardCellMinWidth = mobileMode ? (tabletMode ? 108 : 82) : 140;
+  const draftBoardCellMinHeight = mobileMode ? (tabletMode ? 64 : 48) : undefined;
+  const boardCellRadius = mobileMode ? (tabletMode ? 14 : 12) : 16;
+  const boardCellPadding = mobileMode ? (tabletMode ? 5 : 3) : 8;
+  const boardCellMarginRight = mobileMode ? (tabletMode ? 4 : 3) : 4;
+  const showBoardCellImages = tabletMode || !mobileMode;
   const visibleTabs = availableTabs ?? ["Rankings Board", "Draft Board", "Cheatsheet", "Teams"];
   const showRankTab = visibleTabs.includes("Rankings Board");
   const showDraftTab = visibleTabs.includes("Draft Board");
@@ -854,6 +858,7 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                               drafted={playerId ? draftedIds.has(playerId) : false}
                               bg={player ? posColor(player.position) : "var(--surface-0)"}
                               marginRight={boardCellMarginRight}
+                              tabletMode={tabletMode}
                             />
                           );
                         })}
@@ -1104,7 +1109,7 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                                   imageUrl={undefined}
                                   showDash={false}
                                   showImage={showBoardCellImages}
-                                  compact={mobileMode}
+                                  compact={compactMobileMode}
                                   clampNameLines={2}
                                 />
                               </BoardCell>
@@ -1140,7 +1145,7 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                                 imageUrl={undefined}
                                 showDash={false}
                                 showImage={showBoardCellImages}
-                                compact={mobileMode}
+                                compact={compactMobileMode}
                                 clampNameLines={2}
                               />
                               </BoardCell>
@@ -1186,7 +1191,7 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                                 imageUrl={player.imageUrl}
                                 showDash={false}
                                 showImage={showBoardCellImages}
-                                compact={mobileMode}
+                                compact={compactMobileMode}
                                 clampNameLines={2}
                               />
                             </BoardCell>

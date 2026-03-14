@@ -66,7 +66,7 @@ export default function App() {
   const [activeView, setActiveView] = useState<AppView>("draftCompanion");
   const [modeNavLeftPx, setModeNavLeftPx] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== "undefined" ? window.matchMedia("(max-width: 900px)").matches : false
+    typeof window !== "undefined" ? window.matchMedia("(max-width: 1100px)").matches : false
   );
   const [teams, setTeams] = useState(12);
   const [teamNames, setTeamNames] = useState<string[]>(
@@ -79,7 +79,7 @@ export default function App() {
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
-    const media = window.matchMedia("(max-width: 900px)");
+    const media = window.matchMedia("(max-width: 1100px)");
     const update = () => setIsMobile(media.matches);
     update();
     media.addEventListener("change", update);
