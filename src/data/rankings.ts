@@ -1428,6 +1428,6 @@ export const rankingIds: string[] = [
 
 // Manually update this when KTC data is refreshed (derived from src/data/rankings.csv header row).
 
-export const KTC_LAST_UPDATED = "03/13/26 09:16pm";
+export const KTC_LAST_UPDATED = "03/13/26 09:28pm";
 export const ADP_LAST_UPDATED = "03/13/26 03:12pm";
 export const CONSENSUS_LAST_UPDATED = "03/13/26 05:48pm";
