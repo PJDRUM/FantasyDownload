@@ -1162,12 +1162,14 @@ export default function App() {
             onAddPlayer={addPlayerToRankings}
             draftStyle={draftStyle}
             setDraftStyle={setDraftStyle}
-            rankingIds={rankingIdsByList["Rankings"]}
+            rankingsListKey={rankingsListKey}
+            setRankingsListKey={setRankingsListKey}
+            rankingIds={boardRankingIds}
             rankingsRankingIds={rankingIdsByList["Rankings"]}
             rankingsTiersByPos={tiersByPosByList["Rankings"]}
             playersById={playersById}
-            tiersByPos={tiersByPosByList["Rankings"]}
-            onUpdateTiersByPos={onUpdateRankingsTiersByPos}
+            tiersByPos={boardTiersByPos}
+            onUpdateTiersByPos={onUpdateTiersByPos}
             onUpdateRankingsTiersByPos={onUpdateRankingsTiersByPos}
             draftedIds={draftedIds}
             onToggleDrafted={toggleDrafted}

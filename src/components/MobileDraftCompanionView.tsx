@@ -3,10 +3,16 @@ import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } f
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Position, Player } from "../models/Player";
-import type { TiersByPos } from "../utils/xlsxRankings";
+import type { RankingsListKey, TiersByPos } from "../utils/xlsxRankings";
 import Board, { type BoardTab, type DraftStyle } from "./Board";
 
 const TOUCH_LAYOUT_TABS: BoardTab[] = ["Rankings Board", "Draft Board", "Cheatsheet", "Teams"];
+const MOBILE_SOURCE_TABS: Array<{ key: RankingsListKey; label: string }> = [
+  { key: "Rankings", label: "My Rankings" },
+  { key: "Consensus", label: "Consensus" },
+  { key: "ADP", label: "Redraft ADP" },
+  { key: "KTC", label: "Dynasty Values" },
+];
 
 function normalizeMobileSearch(value: string) {
   return value
@@ -28,6 +34,8 @@ type MobileDraftCompanionViewProps = {
   onAddPlayer: (name: string, position: Position) => void;
   draftStyle: DraftStyle;
   setDraftStyle: (style: DraftStyle) => void;
+  rankingsListKey: RankingsListKey;
+  setRankingsListKey: React.Dispatch<React.SetStateAction<RankingsListKey>>;
   rankingIds: string[];
   rankingsRankingIds: string[];
   rankingsTiersByPos: TiersByPos;
@@ -194,6 +202,8 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
     onAddPlayer,
     draftStyle,
     setDraftStyle,
+    rankingsListKey,
+    setRankingsListKey,
     rankingIds,
     rankingsRankingIds,
     rankingsTiersByPos,
@@ -312,6 +322,7 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
     if (activePosition !== "ALL") return;
     const { active, over } = event;
     if (!over || active.id === over.id) return;
+    if (rankingsListKey !== "Rankings") return;
 
     const fromIndex = rankingIds.indexOf(String(active.id));
     const toIndex = rankingIds.indexOf(String(over.id));
@@ -422,7 +433,7 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
 
       <div style={{ flex: 1, minHeight: 0 }}>
         <Board
-          allowRankingsReorder={false}
+          allowRankingsReorder={rankingsListKey === "Rankings"}
           favoriteIds={favoriteIds}
           boardTab={boardTab}
           setBoardTab={setBoardTab}
@@ -508,6 +519,43 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                 margin: isTablet ? "0 auto 10px" : "0 auto 8px",
               }}
             />
+            <div
+              style={{
+                display: "flex",
+                gap: isTablet ? 8 : 5,
+                overflowX: "auto",
+                paddingBottom: 2,
+                marginBottom: isTablet ? 10 : 8,
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
+              }}
+            >
+              {MOBILE_SOURCE_TABS.map(({ key, label }) => {
+                const active = rankingsListKey === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setRankingsListKey(key)}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    style={{
+                      flex: "0 0 auto",
+                      padding: isTablet ? "8px 13px" : "6px 10px",
+                      borderRadius: 999,
+                      border: active ? "1px solid rgba(255,255,255,0.2)" : "1px solid rgba(255,255,255,0.1)",
+                      background: active ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.05)",
+                      color: "var(--text-0)",
+                      fontSize: isTablet ? 12 : 10,
+                      fontWeight: 800,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
             <div style={{ display: "flex", alignItems: "center", gap: isTablet ? 8 : 6 }}>
               <input
                 type="text"
@@ -610,7 +658,7 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                     rank={rankingIds.indexOf(id) + 1}
                     player={playersById[id]}
                     drafted={draftedIds.has(id)}
-                    sortable={activePosition === "ALL"}
+                    sortable={rankingsListKey === "Rankings" && activePosition === "ALL"}
                     tabletMode={isTablet}
                     posColor={posColor}
                     onToggleDrafted={onToggleDrafted}
