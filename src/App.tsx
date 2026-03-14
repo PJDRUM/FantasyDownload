@@ -96,10 +96,14 @@ export default function App() {
     const saved = window.localStorage.getItem("fantasy-board:consensus-format");
     return saved === "standard" || saved === "halfPpr" || saved === "ppr" ? saved : "halfPpr";
   });
+  const [compareConsensusFormat, setCompareConsensusFormat] = useState<ScoringFormat>("halfPpr");
+  const [compareKtcValueMode, setCompareKtcValueMode] = useState<"1qb" | "2qb">("2qb");
   const [hideKickers, setHideKickers] = useState(false);
   const [hideDefenses, setHideDefenses] = useState(false);
   const [compareImportedLists, setCompareImportedLists] = useState<ImportedCompareList[]>([]);
-  const [compareColumnOrder, setCompareColumnOrder] = useState<string[]>(["my-rankings", "consensus-rankings"]);
+  const [showCompareConsensus, setShowCompareConsensus] = useState(true);
+  const [showCompareKtc, setShowCompareKtc] = useState(true);
+  const [compareColumnOrder, setCompareColumnOrder] = useState<string[]>(["my-rankings", "consensus-rankings", "ktc-rankings"]);
   const [consensusRankingIdsByFormat, setConsensusRankingIdsByFormat] = useState<Record<ScoringFormat, string[]>>({
     standard: [...initialRankingIds],
     halfPpr: [...initialRankingIds],
@@ -610,7 +614,13 @@ export default function App() {
   }
 
   function onRemoveCompareColumn(columnId: string) {
-    setCompareImportedLists((prev) => prev.filter((list) => list.id !== columnId));
+    if (columnId === "consensus-rankings") {
+      setShowCompareConsensus(false);
+    } else if (columnId === "ktc-rankings") {
+      setShowCompareKtc(false);
+    } else {
+      setCompareImportedLists((prev) => prev.filter((list) => list.id !== columnId));
+    }
     setCompareColumnOrder((prev) => prev.filter((id) => id !== columnId));
   }
 
@@ -867,13 +877,102 @@ export default function App() {
         accent: "#22c55e",
         editable: true,
       },
-      {
+    ];
+
+    if (showCompareConsensus) {
+      baseColumns.push({
         id: "consensus-rankings",
         title: "Consensus Rankings",
         subtitle: "Fixed source",
-        rankingIds: consensusRankingIdsByFormat[consensusFormat] ?? [],
+        rankingIds: consensusRankingIdsByFormat[compareConsensusFormat] ?? [],
         accent: "#38bdf8",
-      },
+        removable: true,
+        controls: (
+          <div
+            role="group"
+            aria-label="Consensus ranking format"
+            style={{
+              display: "inline-flex",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: 8,
+              overflow: "hidden",
+              background: "rgba(255,255,255,0.04)",
+            }}
+          >
+            {([
+              { id: "standard", label: "Std" },
+              { id: "halfPpr", label: "Half" },
+              { id: "ppr", label: "PPR" },
+            ] as const).map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setCompareConsensusFormat(option.id)}
+                style={{
+                  padding: "4px 8px",
+                  border: "none",
+                  background: compareConsensusFormat === option.id ? "rgba(255,255,255,0.16)" : "transparent",
+                  color: "var(--text-0)",
+                  fontSize: 11,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        ),
+      });
+    }
+
+    if (showCompareKtc) {
+      baseColumns.push({
+        id: "ktc-rankings",
+        title: "Dynasty Values",
+        subtitle: "Fixed source",
+        rankingIds: ktcRankingIdsByMode[compareKtcValueMode] ?? [],
+        accent: "#a78bfa",
+        removable: true,
+        controls: (
+          <div
+            role="group"
+            aria-label="Dynasty values format"
+            style={{
+              display: "inline-flex",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: 8,
+              overflow: "hidden",
+              background: "rgba(255,255,255,0.04)",
+            }}
+          >
+            {([
+              { id: "1qb", label: "1QB" },
+              { id: "2qb", label: "2QB" },
+            ] as const).map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setCompareKtcValueMode(option.id)}
+                style={{
+                  padding: "4px 8px",
+                  border: "none",
+                  background: compareKtcValueMode === option.id ? "rgba(255,255,255,0.16)" : "transparent",
+                  color: "var(--text-0)",
+                  fontSize: 11,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        ),
+      });
+    }
+
+    baseColumns.push(
       ...compareImportedLists.map((list, index) => ({
         id: list.id,
         title: list.title,
@@ -881,14 +980,24 @@ export default function App() {
         rankingIds: list.rankingIds,
         accent: "#f59e0b",
         removable: true,
-      })),
-    ];
+      }))
+    );
 
     const byId = new Map(baseColumns.map((column) => [column.id, column]));
     const ordered = compareColumnOrder.map((id) => byId.get(id)).filter((column): column is CompareRankingsColumn => Boolean(column));
     const unordered = baseColumns.filter((column) => !compareColumnOrder.includes(column.id));
     return [...ordered, ...unordered];
-  }, [rankingIdsByList, consensusRankingIdsByFormat, consensusFormat, compareImportedLists, compareColumnOrder]);
+  }, [
+    rankingIdsByList,
+    consensusRankingIdsByFormat,
+    compareConsensusFormat,
+    showCompareConsensus,
+    ktcRankingIdsByMode,
+    compareKtcValueMode,
+    showCompareKtc,
+    compareImportedLists,
+    compareColumnOrder,
+  ]);
 
   return (
     <div className="appViewport">

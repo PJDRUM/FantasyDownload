@@ -12,6 +12,7 @@ export type CompareRankingsColumn = {
   accent: string;
   editable?: boolean;
   removable?: boolean;
+  controls?: React.ReactNode;
 };
 
 function SortableCompareColumn(props: {
@@ -33,14 +34,14 @@ function SortableCompareColumn(props: {
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
-        width: 320,
-        minWidth: 320,
+        width: 380,
+        minWidth: 380,
         display: "flex",
         flexDirection: "column",
-        borderRadius: 20,
-        border: "1px solid rgba(255,255,255,0.08)",
-        background: "linear-gradient(180deg, rgba(18,22,30,0.98) 0%, rgba(11,15,21,0.98) 100%)",
-        boxShadow: isDragging ? "0 22px 42px rgba(0,0,0,0.3)" : "0 16px 34px rgba(0,0,0,0.22)",
+        borderRadius: 12,
+        border: "1px solid rgba(255,255,255,0.09)",
+        background: "rgba(14,18,24,0.98)",
+        boxShadow: isDragging ? "0 18px 32px rgba(0,0,0,0.24)" : "0 10px 22px rgba(0,0,0,0.16)",
         overflow: "hidden",
       }}
     >
@@ -48,87 +49,124 @@ function SortableCompareColumn(props: {
         {...attributes}
         {...listeners}
         style={{
+          position: "relative",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           gap: 12,
-          padding: "14px 16px",
+          padding: "12px 42px 12px 14px",
           cursor: "grab",
-          background: `linear-gradient(135deg, ${column.accent}22 0%, rgba(255,255,255,0.03) 100%)`,
-          borderBottom: "1px solid rgba(255,255,255,0.08)",
+          background: `linear-gradient(180deg, ${column.accent}18 0%, rgba(255,255,255,0.02) 100%)`,
+          borderBottom: "1px solid rgba(255,255,255,0.07)",
         }}
       >
-        <div style={{ minWidth: 0 }}>
-          <div style={{ color: "var(--text-0)", fontSize: 18, fontWeight: 950, lineHeight: 1.1 }}>{column.title}</div>
-          {column.subtitle ? (
-            <div style={{ color: "rgba(255,255,255,0.62)", fontSize: 11, fontWeight: 800, marginTop: 4 }}>{column.subtitle}</div>
-          ) : null}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-          {column.removable && onRemoveColumn ? (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onRemoveColumn(column.id);
-              }}
-              title={`Remove ${column.title}`}
-              aria-label={`Remove ${column.title}`}
+        <div
+          style={{
+            minWidth: 0,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            minHeight: 78,
+          }}
+        >
+          <div>
+            <div style={{ color: "var(--text-0)", fontSize: 16, fontWeight: 950, lineHeight: 1.1 }}>{column.title}</div>
+            <div
               style={{
-                width: 28,
-                height: 28,
-                borderRadius: 999,
-                border: "1px solid rgba(255,255,255,0.12)",
-                background: "rgba(255,255,255,0.06)",
-                color: "rgba(255,255,255,0.82)",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                fontSize: 14,
-                fontWeight: 900,
+                color: "rgba(255,255,255,0.62)",
+                fontSize: 11,
+                fontWeight: 800,
+                marginTop: 4,
+                minHeight: 15,
               }}
             >
-              ×
-            </button>
-          ) : null}
+              {column.subtitle ?? "\u00A0"}
+            </div>
+          </div>
 
           <div
-            aria-hidden
             style={{
-              width: 30,
-              height: 30,
+              marginTop: 8,
+              minHeight: 29,
+              display: "flex",
+              alignItems: "flex-end",
+            }}
+          >
+            {column.controls ?? <span aria-hidden style={{ display: "block", height: 29 }} />}
+          </div>
+        </div>
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            right: 12,
+            bottom: 12,
+            width: 28,
+            height: 28,
+            borderRadius: 8,
+            border: "1px solid rgba(255,255,255,0.1)",
+            background: "rgba(255,255,255,0.05)",
+            color: "rgba(255,255,255,0.66)",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 15,
+          }}
+        >
+          ≡
+        </div>
+
+        {column.removable && onRemoveColumn ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemoveColumn(column.id);
+            }}
+            title={`Remove ${column.title}`}
+            aria-label={`Remove ${column.title}`}
+            style={{
+              position: "absolute",
+              top: 8,
+              right: 8,
+              width: 24,
+              height: 24,
               borderRadius: 999,
-              border: "1px solid rgba(255,255,255,0.1)",
-              background: "rgba(255,255,255,0.05)",
-              color: "rgba(255,255,255,0.66)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              background: "rgba(255,255,255,0.06)",
+              color: "rgba(255,255,255,0.82)",
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 15,
+              cursor: "pointer",
+              fontSize: 13,
+              fontWeight: 900,
             }}
           >
-            ≡
-          </div>
-        </div>
+            ×
+          </button>
+        ) : null}
       </div>
 
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "48px 1fr",
-          gap: 8,
-          padding: "10px 16px 8px",
+          gridTemplateColumns: "44px minmax(0, 1fr) 50px 52px",
+          gap: 10,
+          padding: "9px 14px",
           borderBottom: "1px solid rgba(255,255,255,0.06)",
           color: "rgba(255,255,255,0.62)",
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: 900,
-          letterSpacing: 0.5,
+          letterSpacing: 0.65,
           textTransform: "uppercase",
+          background: "rgba(255,255,255,0.02)",
         }}
       >
         <div>Rank</div>
         <div>Player</div>
+        <div>Pos</div>
+        <div>Team</div>
       </div>
 
       <div
@@ -180,24 +218,22 @@ function StaticCompareRankingRow(props: {
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "48px 1fr",
-        gap: 8,
+        gridTemplateColumns: "44px minmax(0, 1fr) 50px 52px",
+        gap: 10,
         alignItems: "center",
-        padding: "10px 10px",
-        marginBottom: 6,
-        borderRadius: 14,
-        border: "1px solid rgba(255,255,255,0.06)",
-        background: "rgba(255,255,255,0.03)",
+        padding: "8px 12px",
+        borderBottom: "1px solid rgba(255,255,255,0.05)",
+        background: rank % 2 === 0 ? "rgba(255,255,255,0.015)" : "transparent",
       }}
     >
-      <div style={{ color: "rgba(255,255,255,0.82)", fontWeight: 900, fontSize: 13 }}>{rank}</div>
-      <div style={{ minWidth: 0 }}>
+      <div style={{ color: "rgba(255,255,255,0.78)", fontWeight: 850, fontSize: 12 }}>{rank}</div>
+      <div style={{ minWidth: 0, paddingRight: 6 }}>
         <div
           style={{
             color: "var(--text-0)",
-            fontSize: 14,
-            fontWeight: 850,
-            lineHeight: 1.2,
+            fontSize: 13,
+            fontWeight: 800,
+            lineHeight: 1.15,
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -205,10 +241,9 @@ function StaticCompareRankingRow(props: {
         >
           {player.name}
         </div>
-        <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, fontWeight: 750, marginTop: 3 }}>
-          {player.position}{player.team ? ` • ${player.team}` : ""}
-        </div>
       </div>
+      <div style={{ color: "rgba(255,255,255,0.72)", fontSize: 12, fontWeight: 800 }}>{player.position}</div>
+      <div style={{ color: "rgba(255,255,255,0.62)", fontSize: 12, fontWeight: 750 }}>{player.team ?? "-"}</div>
     </div>
   );
 }
@@ -235,26 +270,24 @@ function SortableCompareRankingRow(props: {
         transform: CSS.Transform.toString(transform),
         transition,
         display: "grid",
-        gridTemplateColumns: "48px 1fr",
-        gap: 8,
+        gridTemplateColumns: "44px minmax(0, 1fr) 50px 52px",
+        gap: 10,
         alignItems: "center",
-        padding: "10px 10px",
-        marginBottom: 6,
-        borderRadius: 14,
-        border: isDragging ? `1px solid ${accent}` : "1px solid rgba(255,255,255,0.06)",
-        background: isDragging ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.03)",
-        boxShadow: isDragging ? "0 14px 30px rgba(0,0,0,0.22)" : "none",
+        padding: "8px 12px",
+        borderBottom: "1px solid rgba(255,255,255,0.05)",
+        background: isDragging ? `${accent}18` : rank % 2 === 0 ? "rgba(255,255,255,0.015)" : "transparent",
+        boxShadow: isDragging ? "inset 0 0 0 1px rgba(255,255,255,0.08)" : "none",
         cursor: "grab",
       }}
     >
-      <div style={{ color: "rgba(255,255,255,0.82)", fontWeight: 900, fontSize: 13 }}>{rank}</div>
-      <div style={{ minWidth: 0 }}>
+      <div style={{ color: "rgba(255,255,255,0.78)", fontWeight: 850, fontSize: 12 }}>{rank}</div>
+      <div style={{ minWidth: 0, paddingRight: 6 }}>
         <div
           style={{
             color: "var(--text-0)",
-            fontSize: 14,
-            fontWeight: 850,
-            lineHeight: 1.2,
+            fontSize: 13,
+            fontWeight: 800,
+            lineHeight: 1.15,
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -262,10 +295,9 @@ function SortableCompareRankingRow(props: {
         >
           {player.name}
         </div>
-        <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, fontWeight: 750, marginTop: 3 }}>
-          {player.position}{player.team ? ` • ${player.team}` : ""}
-        </div>
       </div>
+      <div style={{ color: "rgba(255,255,255,0.72)", fontSize: 12, fontWeight: 800 }}>{player.position}</div>
+      <div style={{ color: "rgba(255,255,255,0.62)", fontSize: 12, fontWeight: 750 }}>{player.team ?? "-"}</div>
     </div>
   );
 }
