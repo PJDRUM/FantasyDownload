@@ -342,6 +342,10 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
             gap: 2,
             alignItems: "center",
             padding: isTablet ? 3 : 2,
+            overflowX: "auto",
+            maxWidth: "100%",
+            scrollbarWidth: "none",
+            msOverflowStyle: "none",
           }}
         >
           <button
@@ -379,6 +383,42 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
             }}
           >
             Draft Board
+          </button>
+          <button
+            type="button"
+            onClick={() => setBoardTab("Cheatsheet")}
+            style={{
+              padding: isTablet ? "8px 14px" : "5px 10px",
+              borderRadius: 999,
+              border: boardTab === "Cheatsheet" ? "1px solid rgba(255,255,255,0.18)" : "1px solid transparent",
+              background: boardTab === "Cheatsheet" ? "rgba(255,255,255,0.1)" : "transparent",
+              color: "var(--text-0)",
+              fontWeight: 800,
+              fontSize: isTablet ? 12 : 10,
+              lineHeight: isTablet ? "14px" : "12px",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Cheatsheet
+          </button>
+          <button
+            type="button"
+            onClick={() => setBoardTab("Teams")}
+            style={{
+              padding: isTablet ? "8px 14px" : "5px 10px",
+              borderRadius: 999,
+              border: boardTab === "Teams" ? "1px solid rgba(255,255,255,0.18)" : "1px solid transparent",
+              background: boardTab === "Teams" ? "rgba(255,255,255,0.1)" : "transparent",
+              color: "var(--text-0)",
+              fontWeight: 800,
+              fontSize: isTablet ? 12 : 10,
+              lineHeight: isTablet ? "14px" : "12px",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Teams
           </button>
         </div>
         <div
@@ -460,7 +500,7 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
           sensors={sensors}
           onBoardDragEnd={onBoardDragEnd}
           onDraftBoardDragEnd={onDraftBoardDragEnd}
-          availableTabs={["Rankings Board", "Draft Board"]}
+          availableTabs={["Rankings Board", "Draft Board", "Cheatsheet", "Teams"]}
           mobileMode
           tabletMode={isTablet}
           allowDraftBoardReorder={false}
