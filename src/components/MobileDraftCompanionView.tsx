@@ -220,6 +220,7 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
   const [sheetHeight, setSheetHeight] = useState<number>(initialHeight);
   const [query, setQuery] = useState("");
   const [activePosition, setActivePosition] = useState<"ALL" | Position>("ALL");
+  const [hideDrafted, setHideDrafted] = useState(false);
   const dragStateRef = useRef<{ startY: number; startHeight: number } | null>(null);
   const mobileSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -245,18 +246,18 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
   }, [activePosition, visibleRankingIds, playersById]);
   const filteredRankingIds = useMemo(() => {
     const q = normalizeMobileSearch(query);
-    if (!q) return positionFilteredRankingIds;
-
     return positionFilteredRankingIds.filter((id) => {
+      if (hideDrafted && draftedIds.has(id)) return false;
       const player = playersById[id];
       if (!player) return false;
+      if (!q) return true;
 
       const name = normalizeMobileSearch(player.name ?? "");
       const pos = normalizeMobileSearch(player.position ?? "");
       const team = normalizeMobileSearch(player.team ?? "");
       return name.includes(q) || pos.includes(q) || team.includes(q);
     });
-  }, [query, positionFilteredRankingIds, playersById]);
+  }, [query, positionFilteredRankingIds, playersById, hideDrafted, draftedIds]);
 
   useEffect(() => {
     if (!availablePositionTabs.includes(activePosition)) {
@@ -509,25 +510,48 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                 margin: "0 auto 8px",
               }}
             />
-            <input
-              type="text"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search players"
-              aria-label="Search players"
-              onPointerDown={(event) => event.stopPropagation()}
-              style={{
-                width: "100%",
-                padding: "9px 11px",
-                borderRadius: 12,
-                border: "1px solid rgba(255,255,255,0.12)",
-                background: "rgba(255,255,255,0.08)",
-                color: "var(--text-0)",
-                outline: "none",
-                fontSize: 13,
-                fontWeight: 700,
-              }}
-            />
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <input
+                type="text"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search players"
+                aria-label="Search players"
+                onPointerDown={(event) => event.stopPropagation()}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  padding: "9px 11px",
+                  borderRadius: 12,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.08)",
+                  color: "var(--text-0)",
+                  outline: "none",
+                  fontSize: 13,
+                  fontWeight: 700,
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setHideDrafted((prev) => !prev)}
+                onPointerDown={(event) => event.stopPropagation()}
+                style={{
+                  flex: "0 0 auto",
+                  padding: "9px 10px",
+                  borderRadius: 12,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: hideDrafted ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.08)",
+                  color: "var(--text-0)",
+                  fontSize: 11,
+                  fontWeight: 800,
+                  lineHeight: 1,
+                  whiteSpace: "nowrap",
+                  cursor: "pointer",
+                }}
+              >
+                {hideDrafted ? "Show Drafted" : "Hide Drafted"}
+              </button>
+            </div>
             <div
               style={{
                 display: "flex",

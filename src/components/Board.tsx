@@ -1037,6 +1037,7 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                         background: "transparent",
                         color: "var(--text-0)",
                         fontWeight: 800,
+                        fontSize: mobileMode ? 16 : 13,
                         textAlign: "center",
                         padding: 2,
                       }}
