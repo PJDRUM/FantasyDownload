@@ -1,5 +1,5 @@
 // src/App.tsx
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
 import { players as basePlayersArr, rankingIds as initialRankingIds } from "./data/rankings";
 import rankingsCsvUrl from "./data/rankings.csv";
 import adpCsvUrl from "./data/adp.csv";
@@ -63,6 +63,7 @@ function getConsensusValueForFormat(player: Player, format: ScoringFormat): numb
 
 export default function App() {
   const [activeView, setActiveView] = useState<AppView>("draftCompanion");
+  const [modeNavLeftPx, setModeNavLeftPx] = useState<number | null>(null);
   const [teams, setTeams] = useState(12);
   const [teamNames, setTeamNames] = useState<string[]>(
     Array.from({ length: 12 }, (_, i) => `Team ${i + 1}`)
@@ -998,6 +999,20 @@ export default function App() {
     compareImportedLists,
     compareColumnOrder,
   ]);
+  const boardColumnRef = useRef<HTMLDivElement | null>(null);
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      const left = boardColumnRef.current?.getBoundingClientRect().left;
+      if (typeof left === "number") {
+        setModeNavLeftPx(Math.round(left));
+      }
+    };
+
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [activeView]);
 
   return (
     <div className="appViewport">
@@ -1021,6 +1036,7 @@ export default function App() {
             activeView={activeView}
             onOpenDraftCompanion={() => setActiveView("draftCompanion")}
             onOpenCompareRankings={() => setActiveView("compareRankings")}
+            modeNavLeftPx={modeNavLeftPx}
           />
         </div>
 
@@ -1115,6 +1131,7 @@ export default function App() {
             </div>
 
             <div
+              ref={boardColumnRef}
               style={{
                 flex: 1,
                 minWidth: 0,

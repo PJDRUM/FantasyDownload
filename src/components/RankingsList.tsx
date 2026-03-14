@@ -371,7 +371,7 @@ export default function RankingsList(props: {
 
   const rankingTabs = useMemo(
     () => [
-      { key: "Rankings" as const, ariaLabel: "Rankings", labelTop: "Rankings", labelBottom: null, updated: null },
+      { key: "Rankings" as const, ariaLabel: "My Rankings", labelTop: "My", labelBottom: "Rankings", updated: null },
       { key: "Consensus" as const, ariaLabel: "Consensus Rankings", labelTop: "Consensus", labelBottom: "Rankings", updated: consensusUpdated },
       { key: "ADP" as const, ariaLabel: "Redraft ADP", labelTop: "Redraft", labelBottom: "ADP", updated: adpUpdated },
       { key: "KTC" as const, ariaLabel: "Dynasty Values", labelTop: "Dynasty", labelBottom: "Values", updated: ktcUpdated },

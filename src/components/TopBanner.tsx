@@ -9,6 +9,7 @@ type TopBannerProps = {
   activeView: "draftCompanion" | "compareRankings";
   onOpenDraftCompanion: () => void;
   onOpenCompareRankings: () => void;
+  modeNavLeftPx: number | null;
 };
 
 type PodcastsItem = { label: string; href?: string; imgSrc: string };
@@ -52,6 +53,7 @@ export default function TopBanner({
   activeView,
   onOpenDraftCompanion,
   onOpenCompareRankings,
+  modeNavLeftPx,
 }: TopBannerProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsMenuRef = useRef<HTMLDivElement>(null);
@@ -448,35 +450,10 @@ export default function TopBanner({
           </a>
         </div>
 
-        {/* Middle spacer */}
-        <div style={{ flex: 1 }} />
+        <div style={{ flex: 1, minWidth: 0 }} />
 
         {/* Right actions: Podcasts next to Settings */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px" }}>
-          <button
-            type="button"
-            onClick={onOpenDraftCompanion}
-            style={{
-              ...navBtnBase,
-              cursor: "pointer",
-              background: activeView === "draftCompanion" ? "rgba(255,255,255,0.12)" : "transparent",
-            }}
-          >
-            <span>Draft Companion</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onOpenCompareRankings}
-            style={{
-              ...navBtnBase,
-              cursor: "pointer",
-              background: activeView === "compareRankings" ? "rgba(255,255,255,0.12)" : "transparent",
-            }}
-          >
-            <span>Compare Rankings</span>
-          </button>
-
           <button
             ref={podcastsAnchorRef}
             onClick={togglePodcasts}
@@ -626,6 +603,46 @@ export default function TopBanner({
               </div>
             )}
           </div>
+        </div>
+
+        <div
+          style={{
+            position: "absolute",
+            left: modeNavLeftPx != null ? modeNavLeftPx : 420,
+            top: "50%",
+            transform: "translateY(-50%)",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
+            pointerEvents: "none",
+          }}
+        >
+          <button
+            type="button"
+            onClick={onOpenDraftCompanion}
+            style={{
+              ...navBtnBase,
+              cursor: "pointer",
+              background: activeView === "draftCompanion" ? "rgba(255,255,255,0.12)" : "transparent",
+              pointerEvents: "auto",
+            }}
+          >
+            <span>Draft Companion</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenCompareRankings}
+            style={{
+              ...navBtnBase,
+              cursor: "pointer",
+              background: activeView === "compareRankings" ? "rgba(255,255,255,0.12)" : "transparent",
+              pointerEvents: "auto",
+            }}
+          >
+            <span>Compare Rankings</span>
+          </button>
         </div>
       </div>
 
