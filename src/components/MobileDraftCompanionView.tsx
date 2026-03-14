@@ -6,6 +6,8 @@ import type { Position, Player } from "../models/Player";
 import type { TiersByPos } from "../utils/xlsxRankings";
 import Board, { type BoardTab, type DraftStyle } from "./Board";
 
+const TOUCH_LAYOUT_TABS: BoardTab[] = ["Rankings Board", "Draft Board", "Cheatsheet", "Teams"];
+
 function normalizeMobileSearch(value: string) {
   return value
     .toLowerCase()
@@ -348,78 +350,27 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
             msOverflowStyle: "none",
           }}
         >
-          <button
-            type="button"
-            onClick={() => setBoardTab("Rankings Board")}
-            style={{
-              padding: isTablet ? "8px 14px" : "5px 10px",
-              borderRadius: 999,
-              border: boardTab === "Rankings Board" ? "1px solid rgba(255,255,255,0.18)" : "1px solid transparent",
-              background: boardTab === "Rankings Board" ? "rgba(255,255,255,0.1)" : "transparent",
-              color: "var(--text-0)",
-              fontWeight: 800,
-              fontSize: isTablet ? 12 : 10,
-              lineHeight: isTablet ? "14px" : "12px",
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-            }}
-          >
-            Rankings Board
-          </button>
-          <button
-            type="button"
-            onClick={() => setBoardTab("Draft Board")}
-            style={{
-              padding: isTablet ? "8px 14px" : "5px 10px",
-              borderRadius: 999,
-              border: boardTab === "Draft Board" ? "1px solid rgba(255,255,255,0.18)" : "1px solid transparent",
-              background: boardTab === "Draft Board" ? "rgba(255,255,255,0.1)" : "transparent",
-              color: "var(--text-0)",
-              fontWeight: 800,
-              fontSize: isTablet ? 12 : 10,
-              lineHeight: isTablet ? "14px" : "12px",
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-            }}
-          >
-            Draft Board
-          </button>
-          <button
-            type="button"
-            onClick={() => setBoardTab("Cheatsheet")}
-            style={{
-              padding: isTablet ? "8px 14px" : "5px 10px",
-              borderRadius: 999,
-              border: boardTab === "Cheatsheet" ? "1px solid rgba(255,255,255,0.18)" : "1px solid transparent",
-              background: boardTab === "Cheatsheet" ? "rgba(255,255,255,0.1)" : "transparent",
-              color: "var(--text-0)",
-              fontWeight: 800,
-              fontSize: isTablet ? 12 : 10,
-              lineHeight: isTablet ? "14px" : "12px",
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-            }}
-          >
-            Cheatsheet
-          </button>
-          <button
-            type="button"
-            onClick={() => setBoardTab("Teams")}
-            style={{
-              padding: isTablet ? "8px 14px" : "5px 10px",
-              borderRadius: 999,
-              border: boardTab === "Teams" ? "1px solid rgba(255,255,255,0.18)" : "1px solid transparent",
-              background: boardTab === "Teams" ? "rgba(255,255,255,0.1)" : "transparent",
-              color: "var(--text-0)",
-              fontWeight: 800,
-              fontSize: isTablet ? 12 : 10,
-              lineHeight: isTablet ? "14px" : "12px",
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-            }}
-          >
-            Teams
-          </button>
+          {TOUCH_LAYOUT_TABS.map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setBoardTab(tab)}
+              style={{
+                padding: isTablet ? "8px 14px" : "5px 10px",
+                borderRadius: 999,
+                border: boardTab === tab ? "1px solid rgba(255,255,255,0.18)" : "1px solid transparent",
+                background: boardTab === tab ? "rgba(255,255,255,0.1)" : "transparent",
+                color: "var(--text-0)",
+                fontWeight: 800,
+                fontSize: isTablet ? 12 : 10,
+                lineHeight: isTablet ? "14px" : "12px",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {tab}
+            </button>
+          ))}
         </div>
         <div
           style={{
@@ -500,7 +451,7 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
           sensors={sensors}
           onBoardDragEnd={onBoardDragEnd}
           onDraftBoardDragEnd={onDraftBoardDragEnd}
-          availableTabs={["Rankings Board", "Draft Board", "Cheatsheet", "Teams"]}
+          availableTabs={TOUCH_LAYOUT_TABS}
           mobileMode
           tabletMode={isTablet}
           allowDraftBoardReorder={false}

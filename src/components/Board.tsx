@@ -962,8 +962,9 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
           <div
             style={{
               // Reserve the same space as the main board so tab switching doesn't "shrink" the container.
-              minWidth: tableSize?.width,
+              minWidth: mobileMode ? 0 : tableSize?.width,
               minHeight: tableSize?.height,
+              width: mobileMode ? "100%" : undefined,
 
               // Center the cheatsheet columns within the reserved space.
               display: "flex",
@@ -980,6 +981,7 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
               draftedIds={draftedIds}
               onToggleDrafted={onToggleDrafted}
               posColor={posColor}
+              fitToViewport={mobileMode}
             />
           </div>
         ) : boardTab === "Teams" ? (
