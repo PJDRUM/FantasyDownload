@@ -96,40 +96,6 @@ const POS_LABEL: Record<Position, string> = {
   DST: "Defense",
 };
 
-const POS_HEADER_IMG: Record<Position, string> = {
-  QB: "/Quarterbacks.png",
-  RB: "/RunningBacks.png",
-  WR: "/WideReceivers.png",
-  TE: "/TightEnds.png",
-  K: "/Kicker.png",
-  DST: "/Defense.png",
-};
-
-// Header viewport is fixed; tune each *image* independently below.
-const HEADER_CONTAINER_HEIGHT_PX = 50;
-
-// Per-position HEADER IMAGE sizing/tuning (does NOT change header container height).
-// - imgTopPx: absolute top position of the image inside the viewport.
-// - imgHeightPct: image element height as a percent of the viewport height (overscan to avoid gaps when shifting).
-// - translateYPx: fine-tune vertical shift. + moves DOWN, - moves UP.
-// - scale: fine-tune overall image scale (1 = normal).
-const POS_HEADER_IMG_STYLE: Record<
-  Position,
-  {
-    imgTopPx: number;
-    imgHeightPct: number;
-    translateYPx: number;
-    scale: number;
-  }
-> = {
-  QB: { imgTopPx: 0, imgHeightPct: 120, translateYPx: 0, scale: 1.02 }, // Quarterback Header Image Size
-  RB: { imgTopPx: 3, imgHeightPct: 120, translateYPx: 0, scale: 1.1 }, // Running Back Header Image Size
-  WR: { imgTopPx: 3, imgHeightPct: 120, translateYPx: 0, scale: 1.17 }, // Wide Receiver Header Image Size
-  TE: { imgTopPx: 3, imgHeightPct: 120, translateYPx: 0, scale: 1.1 }, // Tight End Header Image Size
-  K: { imgTopPx: 3, imgHeightPct: 120, translateYPx: 0, scale: 1 }, // Kicker Header Image Size
-  DST: { imgTopPx: 3, imgHeightPct: 120, translateYPx: 0, scale: 1 }, // Defense Header Image Size
-};
-
 type TierBlock = { id: string; playerIds: string[] };
 
 export default function Cheatsheet(props: {
@@ -241,7 +207,6 @@ export default function Cheatsheet(props: {
         }}
       >
         {positions.map((pos) => {
-          const headerImgStyle = POS_HEADER_IMG_STYLE[pos] ?? POS_HEADER_IMG_STYLE.QB;
           const tierColor = posColor(pos);
           const tierBlocks = tierBlocksByPos[pos] ?? [];
 
@@ -288,64 +253,54 @@ export default function Cheatsheet(props: {
               key={pos}
               style={{
                 boxSizing: "border-box",
-                borderRadius: 16,
-                border: "1px solid rgba(255,255,255,0.10)",
-                outline: "1px solid rgba(0,0,0,0.18)",
-                background: "var(--panel-bg)",
+                borderRadius: 18,
+                border: "1px solid rgba(255,255,255,0.08)",
+                background: "linear-gradient(180deg, rgba(24,29,36,0.96) 0%, rgba(14,18,24,0.98) 100%)",
                 overflow: "hidden",
+                boxShadow: "0 16px 32px rgba(0,0,0,0.24)",
               }}
             >
               <div
                 style={{
-                  height: HEADER_CONTAINER_HEIGHT_PX,
-                  position: "relative",
-                  background: "transparent",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  padding: "12px 12px 10px",
                   borderBottom: "1px solid rgba(255,255,255,0.08)",
-                  overflow: "hidden",
+                  background: `linear-gradient(135deg, ${tierColor}22 0%, rgba(255,255,255,0.02) 100%)`,
                 }}
               >
-                <img
-                  src={POS_HEADER_IMG[pos]}
-                  alt={POS_LABEL[pos]}
-                  draggable={false}
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    right: 0,
-                    top: headerImgStyle.imgTopPx,
-                    width: "100%",
-                    height: `${headerImgStyle.imgHeightPct}%`,
-                    transform: `translateY(${headerImgStyle.translateYPx}px) scale(${headerImgStyle.scale})`,
-                    objectFit: "cover",
-                    objectPosition: "center",
-                    userSelect: "none",
-                    pointerEvents: "none",
-                    filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.50))",
-                  }}
-                />
-              </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+                  <span
+                    style={{
+                      color: "var(--text-0)",
+                      fontSize: 18,
+                      fontWeight: 950,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {POS_LABEL[pos]}
+                  </span>
+                </div>
 
-              <div style={{ padding: 10 }}>
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 8 }}>
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
                   <button
                     type="button"
                     onClick={addTier}
                     title="Add tier"
                     style={{
-                      width: 22,
-                      height: 22,
+                      width: 24,
+                      height: 24,
                       borderRadius: 999,
-                      border: "none",
-                      background: tierColor,
+                      border: "1px solid rgba(255,255,255,0.14)",
+                      background: "rgba(255,255,255,0.08)",
                       color: "#ffffff",
                       fontWeight: 900,
-                      lineHeight: "22px",
-                      textAlign: "center",
                       cursor: "pointer",
                       display: "inline-flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      boxShadow: "0 6px 16px rgba(0,0,0,0.25)",
                     }}
                   >
                     +
@@ -355,26 +310,25 @@ export default function Cheatsheet(props: {
                     onClick={removeTier}
                     title="Remove tier"
                     style={{
-                      width: 22,
-                      height: 22,
+                      width: 24,
+                      height: 24,
                       borderRadius: 999,
-                      border: "none",
-                      background: tierColor,
+                      border: "1px solid rgba(255,255,255,0.14)",
+                      background: "rgba(255,255,255,0.08)",
                       color: "#ffffff",
                       fontWeight: 900,
-                      lineHeight: "22px",
-                      textAlign: "center",
                       cursor: "pointer",
                       display: "inline-flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      boxShadow: "0 6px 16px rgba(0,0,0,0.25)",
                     }}
                   >
                     −
                   </button>
                 </div>
+              </div>
 
+              <div style={{ padding: 10 }}>
                 {tierBlocks.map((block, idx) => {
                   const isTierOne = idx === 0;
                   const prevTier = idx > 0 ? tierBlocks[idx - 1] : null;
@@ -387,25 +341,43 @@ export default function Cheatsheet(props: {
                       <div
                         style={{
                           display: "flex",
-                          alignItems: "stretch",
+                          alignItems: "center",
                           justifyContent: "space-between",
                           padding: 0,
                           borderRadius: 10,
                           overflow: "hidden",
-                          background: tierColor,
-                          border: `1px solid ${tierColor}`,
+                          background: `linear-gradient(90deg, ${tierColor}f0 0%, ${tierColor}c8 100%)`,
+                          border: "1px solid rgba(255,255,255,0.08)",
                           fontWeight: 900,
-                          fontSize: 12,
-                          letterSpacing: 0.3,
+                          fontSize: 10,
+                          letterSpacing: 0.45,
                           color: "#ffffff",
-                          boxShadow: "0 6px 16px rgba(0,0,0,0.25)",
+                          boxShadow: "0 6px 14px rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.12)",
                           userSelect: "none",
                         }}
                       >
-                        <span style={{ display: "flex", alignItems: "center", padding: "6px 8px" }}>Tier {idx + 1}</span>
+                        <span
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            padding: "5px 9px",
+                            textTransform: "uppercase",
+                            textShadow: "0 1px 2px rgba(0,0,0,0.22)",
+                          }}
+                        >
+                          Tier {idx + 1}
+                        </span>
 
                         {!isTierOne && (
-                          <span style={{ display: "flex", alignItems: "center", gap: 6, paddingRight: 6 }}>
+                          <span
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 4,
+                              padding: "3px 5px 3px 8px",
+                              background: "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(0,0,0,0.14) 32%)",
+                            }}
+                          >
                             <button
                               type="button"
                               aria-label="Move tier bar up"
@@ -414,21 +386,22 @@ export default function Cheatsheet(props: {
                               onClick={() => nudgeTierBar(pos, idx, "up")}
                               style={{
                                 all: "unset",
-                                width: 18,
-                                height: 18,
+                                width: 16,
+                                height: 16,
                                 borderRadius: 999,
                                 display: "inline-flex",
                                 alignItems: "center",
                                 justifyContent: "center",
                                 cursor: canMoveUp ? "pointer" : "not-allowed",
                                 opacity: canMoveUp ? 1 : 0.35,
-                                background: "rgba(0,0,0,0.22)",
-                                border: "1px solid rgba(255,255,255,0.20)",
+                                background: "rgba(255,255,255,0.14)",
+                                border: "1px solid rgba(255,255,255,0.18)",
                                 lineHeight: 1,
-                                fontSize: 10,
+                                fontSize: 8,
                                 fontWeight: 900,
                                 userSelect: "none",
-                                boxShadow: "0 6px 14px rgba(0,0,0,0.22)",
+                                boxShadow: "0 2px 6px rgba(0,0,0,0.14)",
+                                backdropFilter: "blur(4px)",
                               }}
                             >
                               ▲
@@ -441,21 +414,22 @@ export default function Cheatsheet(props: {
                               onClick={() => nudgeTierBar(pos, idx, "down")}
                               style={{
                                 all: "unset",
-                                width: 18,
-                                height: 18,
+                                width: 16,
+                                height: 16,
                                 borderRadius: 999,
                                 display: "inline-flex",
                                 alignItems: "center",
                                 justifyContent: "center",
                                 cursor: canMoveDown ? "pointer" : "not-allowed",
                                 opacity: canMoveDown ? 1 : 0.35,
-                                background: "rgba(0,0,0,0.22)",
-                                border: "1px solid rgba(255,255,255,0.20)",
+                                background: "rgba(255,255,255,0.14)",
+                                border: "1px solid rgba(255,255,255,0.18)",
                                 lineHeight: 1,
-                                fontSize: 10,
+                                fontSize: 8,
                                 fontWeight: 900,
                                 userSelect: "none",
-                                boxShadow: "0 6px 14px rgba(0,0,0,0.22)",
+                                boxShadow: "0 2px 6px rgba(0,0,0,0.14)",
+                                backdropFilter: "blur(4px)",
                               }}
                             >
                               ▼
@@ -470,10 +444,11 @@ export default function Cheatsheet(props: {
                             style={{
                               padding: "6px 8px",
                               borderRadius: 10,
-                              border: "1px dashed rgba(255,255,255,0.18)",
-                              color: "rgba(255,255,255,0.65)",
+                              border: "1px dashed rgba(255,255,255,0.12)",
+                              color: "rgba(255,255,255,0.58)",
                               fontSize: 12,
                               fontWeight: 650,
+                              background: "rgba(255,255,255,0.02)",
                             }}
                           >
                             Empty tier
@@ -503,7 +478,7 @@ export default function Cheatsheet(props: {
                                   cursor: "pointer",
                                   opacity: drafted ? 0.35 : 1,
                                   textDecoration: drafted ? "line-through" : "none",
-                                  borderBottom: "1px dashed rgba(255,255,255,0.06)",
+                                  borderBottom: "1px solid rgba(255,255,255,0.05)",
                                 }}
                               >
                                 <div

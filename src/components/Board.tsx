@@ -10,6 +10,15 @@ import type { TiersByPos } from "../utils/xlsxRankings";
 export type DraftStyle = "Snake Draft" | "Regular Draft" | "Third Round Reversal";
 export type BoardTab = "Rankings Board" | "Draft Board" | "Cheatsheet" | "Teams";
 
+function normalizeDraftAssignSearch(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^\p{L}\p{N}\s]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function isReverseRound(roundIndex: number, style: DraftStyle) {
   if (style === "Regular Draft") return false;
   if (style === "Snake Draft") return roundIndex % 2 === 1;
@@ -130,7 +139,7 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
 
   const draftAssignCandidates = React.useMemo<string[]>(() => {
     if (!draftAssignModal) return [];
-    const q = draftAssignQuery.trim().toLowerCase();
+    const q = normalizeDraftAssignSearch(draftAssignQuery);
 
     const ids = Object.keys(playersById).filter((id) => !draftedIds.has(id));
 
@@ -139,9 +148,9 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
       : ids.filter((id) => {
           const p = playersById[id];
           if (!p) return false;
-          const name = (p.name ?? "").toLowerCase();
-          const pos = ((p as any).pos ?? "").toLowerCase();
-          const team = ((p as any).team ?? "").toLowerCase();
+          const name = normalizeDraftAssignSearch(p.name ?? "");
+          const pos = normalizeDraftAssignSearch((p as any).pos ?? "");
+          const team = normalizeDraftAssignSearch((p as any).team ?? "");
           return name.includes(q) || pos.includes(q) || team.includes(q);
         });
 
@@ -648,7 +657,7 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                 fontSize: 13,
               }}
             >
-              Unmark All
+              Undraft All
             </button>
           </div>
         </div>

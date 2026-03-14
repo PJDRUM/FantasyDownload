@@ -10,6 +10,7 @@ import RankingsList from "./components/RankingsList";
 import Board, { type BoardTab, type DraftStyle } from "./components/Board";
 import HowToModal from "./components/HowToModal";
 import TopBanner from "./components/TopBanner";
+import CompareRankingsView, { type CompareRankingsColumn } from "./components/CompareRankingsView";
 
 import { posColor } from "./utils/posColor";
 import { exportCheatsheetPdf } from "./utils/cheatsheetPdf";
@@ -31,6 +32,12 @@ import { DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/cor
 import { arrayMove } from "@dnd-kit/sortable";
 
 type ScoringFormat = "standard" | "halfPpr" | "ppr";
+type AppView = "draftCompanion" | "compareRankings";
+type ImportedCompareList = {
+  id: string;
+  title: string;
+  rankingIds: string[];
+};
 
 function parseOptionalNumber(raw: unknown): number | undefined {
   if (raw == null) return undefined;
@@ -55,6 +62,7 @@ function getConsensusValueForFormat(player: Player, format: ScoringFormat): numb
 }
 
 export default function App() {
+  const [activeView, setActiveView] = useState<AppView>("draftCompanion");
   const [teams, setTeams] = useState(12);
   const [teamNames, setTeamNames] = useState<string[]>(
     Array.from({ length: 12 }, (_, i) => `Team ${i + 1}`)
@@ -90,6 +98,8 @@ export default function App() {
   });
   const [hideKickers, setHideKickers] = useState(false);
   const [hideDefenses, setHideDefenses] = useState(false);
+  const [compareImportedLists, setCompareImportedLists] = useState<ImportedCompareList[]>([]);
+  const [compareColumnOrder, setCompareColumnOrder] = useState<string[]>(["my-rankings", "consensus-rankings"]);
   const [consensusRankingIdsByFormat, setConsensusRankingIdsByFormat] = useState<Record<ScoringFormat, string[]>>({
     standard: [...initialRankingIds],
     halfPpr: [...initialRankingIds],
@@ -320,41 +330,6 @@ export default function App() {
     });
   }
 
-  const setKtcAsRankings = useCallback(() => {
-    setRankingIdsByList((prev) => {
-      if (!prev.KTC.length) return prev;
-      return { ...prev, Rankings: [...prev.KTC] };
-    });
-  }, []);
-
-  const setAdpAsRankings = useCallback(() => {
-    const ids = adpRankingIdsByFormat[adpFormat] ?? [];
-    if (!ids.length) return;
-
-    setRankingIdsByList((prev) => ({
-      ...prev,
-      Rankings: [...ids],
-    }));
-  }, [adpFormat, adpRankingIdsByFormat]);
-
-  const setConsensusAsRankings = useCallback(() => {
-    const ids = consensusRankingIdsByFormat[consensusFormat] ?? [];
-    if (!ids.length) return;
-
-    setRankingIdsByList((prev) => ({
-      ...prev,
-      Rankings: [...ids],
-    }));
-  }, [consensusFormat, consensusRankingIdsByFormat]);
-
-  const setActiveSourceAsRankings = rankingsListKey === "ADP"
-    ? setAdpAsRankings
-    : rankingsListKey === "Consensus"
-      ? setConsensusAsRankings
-      : rankingsListKey === "KTC"
-        ? setKtcAsRankings
-        : undefined;
-
   // Board should reflect the active RankingsList tab (Rankings vs KTC)
   const boardTiersByPos = tiersByPosByList[rankingsListKey];
 
@@ -428,6 +403,33 @@ export default function App() {
   const { extraPlayers, setExtraPlayers, allPlayersArr: allPlayers, playersById } = usePlayers({
     basePlayers,
   });
+  const filteredKtcRankingIds = useMemo(() => {
+    return rankingIdsByList.KTC.filter((id) => {
+      const player = playersById[id];
+      if (!player) return false;
+      if (hideKickers && player.position === "K") return false;
+      if (hideDefenses && player.position === "DST") return false;
+      return true;
+    });
+  }, [rankingIdsByList, playersById, hideKickers, hideDefenses]);
+  const filteredAdpRankingIds = useMemo(() => {
+    return (adpRankingIdsByFormat[adpFormat] ?? []).filter((id) => {
+      const player = playersById[id];
+      if (!player) return false;
+      if (hideKickers && player.position === "K") return false;
+      if (hideDefenses && player.position === "DST") return false;
+      return true;
+    });
+  }, [adpRankingIdsByFormat, adpFormat, playersById, hideKickers, hideDefenses]);
+  const filteredConsensusRankingIds = useMemo(() => {
+    return (consensusRankingIdsByFormat[consensusFormat] ?? []).filter((id) => {
+      const player = playersById[id];
+      if (!player) return false;
+      if (hideKickers && player.position === "K") return false;
+      if (hideDefenses && player.position === "DST") return false;
+      return true;
+    });
+  }, [consensusRankingIdsByFormat, consensusFormat, playersById, hideKickers, hideDefenses]);
   const boardRankingIds = useMemo(() => {
     return rankingIdsByList[rankingsListKey].filter((id) => {
       const player = playersById[id];
@@ -437,6 +439,25 @@ export default function App() {
       return true;
     });
   }, [rankingIdsByList, rankingsListKey, playersById, hideKickers, hideDefenses]);
+  const setKtcAsRankings = useCallback(() => {
+    if (!filteredKtcRankingIds.length) return;
+    setRankingIdsByList((prev) => ({ ...prev, Rankings: [...filteredKtcRankingIds] }));
+  }, [filteredKtcRankingIds]);
+  const setAdpAsRankings = useCallback(() => {
+    if (!filteredAdpRankingIds.length) return;
+    setRankingIdsByList((prev) => ({ ...prev, Rankings: [...filteredAdpRankingIds] }));
+  }, [filteredAdpRankingIds]);
+  const setConsensusAsRankings = useCallback(() => {
+    if (!filteredConsensusRankingIds.length) return;
+    setRankingIdsByList((prev) => ({ ...prev, Rankings: [...filteredConsensusRankingIds] }));
+  }, [filteredConsensusRankingIds]);
+  const setActiveSourceAsRankings = rankingsListKey === "ADP"
+    ? setAdpAsRankings
+    : rankingsListKey === "Consensus"
+      ? setConsensusAsRankings
+      : rankingsListKey === "KTC"
+        ? setKtcAsRankings
+        : undefined;
 
   const addPlayerToRankings = useCallback(
     (name: string, position: Position) => {
@@ -569,6 +590,30 @@ export default function App() {
     });
   }
 
+  function onCompareColumnReorder(fromId: string, toId: string) {
+    setCompareColumnOrder((prev) => {
+      const fromIndex = prev.indexOf(fromId);
+      const toIndex = prev.indexOf(toId);
+      if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return prev;
+      return arrayMove(prev, fromIndex, toIndex);
+    });
+  }
+
+  function onCompareMyRankingsMove(fromId: string, toId: string) {
+    setRankingIdsByList((prev) => {
+      const current = prev.Rankings;
+      const fromIndex = current.indexOf(fromId);
+      const toIndex = current.indexOf(toId);
+      if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return prev;
+      return { ...prev, Rankings: arrayMove(current, fromIndex, toIndex) };
+    });
+  }
+
+  function onRemoveCompareColumn(columnId: string) {
+    setCompareImportedLists((prev) => prev.filter((list) => list.id !== columnId));
+    setCompareColumnOrder((prev) => prev.filter((id) => id !== columnId));
+  }
+
   function onDraftBoardDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -653,6 +698,7 @@ export default function App() {
   }
 
   // ----- Import / Export (XLSX with 1 sheet: Rankings) -----
+  const compareFileInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   function exportRankingsXlsxClick() {
@@ -688,6 +734,44 @@ export default function App() {
 
   function importRankingsXlsxClick() {
     fileInputRef.current?.click();
+  }
+
+  function importCompareRankingsClick() {
+    compareFileInputRef.current?.click();
+  }
+
+  function mergeImportedPlayers(players: Player[]) {
+    const baseById = new Map(basePlayers.map((p) => [p.id, p]));
+
+    setExtraPlayers((prev) => {
+      const prevById = new Map(prev.map((p) => [p.id, p]));
+
+      for (const imp of players) {
+        const base = baseById.get(imp.id);
+        const { sfValue: _sfValue, ...impNoKtc } = imp as any;
+
+        if (base) {
+          const existing = prevById.get(imp.id);
+          const merged = {
+            ...base,
+            ...(existing ?? {}),
+            ...impNoKtc,
+            imageUrl:
+              (impNoKtc as any).imageUrl ||
+              (existing as any)?.imageUrl ||
+              (base as any).imageUrl ||
+              "",
+          };
+          prevById.set(imp.id, merged);
+          continue;
+        }
+
+        const existing = prevById.get(imp.id);
+        prevById.set(imp.id, existing ? { ...existing, ...impNoKtc } : (impNoKtc as any));
+      }
+
+      return Array.from(prevById.values());
+    });
   }
 
   function importRankingsXlsxFile(file: File) {
@@ -726,42 +810,7 @@ export default function App() {
         // extra players / overrides
         // NOTE: We store imported player rows into extraPlayers *even if the player exists in basePlayersArr*.
         // This allows imports to override optional fields like risk/upside/adp without mutating the bundled base data.
-        const baseById = new Map(basePlayers.map((p) => [p.id, p]));
-
-        setExtraPlayers((prev) => {
-          const prevById = new Map(prev.map((p) => [p.id, p]));
-
-          for (const imp of parsed.players) {
-            const base = baseById.get(imp.id);
-
-            // Do NOT let an import for the editable Rankings list wipe out KTC-only fields (e.g. sfValue)
-            // that were loaded from rankings.csv.
-            const { sfValue: _sfValue, ...impNoKtc } = imp as any;
-
-            if (base) {
-              const existing = prevById.get(imp.id);
-              // Merge order:
-              // base (includes KTC overlay if present) -> existing extra overrides -> imported fields
-              const merged = {
-                ...base,
-                ...(existing ?? {}),
-                ...impNoKtc,
-                imageUrl:
-                  (impNoKtc as any).imageUrl ||
-                  (existing as any)?.imageUrl ||
-                  (base as any).imageUrl ||
-                  "",
-              };
-              prevById.set(imp.id, merged);
-              continue;
-            }
-
-            const existing = prevById.get(imp.id);
-            prevById.set(imp.id, existing ? { ...existing, ...impNoKtc } : (impNoKtc as any));
-          }
-
-          return Array.from(prevById.values());
-        });
+        mergeImportedPlayers(parsed.players);
 
         alert("Imported rankings + tiers from XLSX.");
       } catch (err: any) {
@@ -770,6 +819,76 @@ export default function App() {
     };
     reader.readAsArrayBuffer(file);
   }
+
+  function importCompareRankingsFile(file: File) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const buf = reader.result as ArrayBuffer;
+        const parsed = importRankingsXlsx({ xlsxArrayBuffer: buf });
+        const importedIds = parsed.rankingIdsByList.Rankings ?? [];
+        if (!importedIds.length) {
+          alert("No rankings found in that file.");
+          return;
+        }
+
+        mergeImportedPlayers(parsed.players);
+
+        const fileLabel = file.name.replace(/\.[^.]+$/, "").trim() || "Imported Rankings";
+        const listId =
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? `imported-${(crypto as any).randomUUID()}`
+            : `imported-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+        setCompareImportedLists((prev) => [
+          ...prev,
+          {
+            id: listId,
+            title: fileLabel,
+            rankingIds: importedIds,
+          },
+        ]);
+        setCompareColumnOrder((prev) => [...prev, listId]);
+        setActiveView("compareRankings");
+      } catch (err: any) {
+        alert(`Could not import comparison rankings: ${err?.message ?? String(err)}`);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  const compareColumns = useMemo<CompareRankingsColumn[]>(() => {
+    const baseColumns: CompareRankingsColumn[] = [
+      {
+        id: "my-rankings",
+        title: "My Rankings",
+        subtitle: "Editable list",
+        rankingIds: rankingIdsByList.Rankings,
+        accent: "#22c55e",
+        editable: true,
+      },
+      {
+        id: "consensus-rankings",
+        title: "Consensus Rankings",
+        subtitle: "Fixed source",
+        rankingIds: consensusRankingIdsByFormat[consensusFormat] ?? [],
+        accent: "#38bdf8",
+      },
+      ...compareImportedLists.map((list, index) => ({
+        id: list.id,
+        title: list.title,
+        subtitle: `Imported list ${index + 1}`,
+        rankingIds: list.rankingIds,
+        accent: "#f59e0b",
+        removable: true,
+      })),
+    ];
+
+    const byId = new Map(baseColumns.map((column) => [column.id, column]));
+    const ordered = compareColumnOrder.map((id) => byId.get(id)).filter((column): column is CompareRankingsColumn => Boolean(column));
+    const unordered = baseColumns.filter((column) => !compareColumnOrder.includes(column.id));
+    return [...ordered, ...unordered];
+  }, [rankingIdsByList, consensusRankingIdsByFormat, consensusFormat, compareImportedLists, compareColumnOrder]);
 
   return (
     <div className="appViewport">
@@ -790,6 +909,9 @@ export default function App() {
             onExportCheatsheetPdf={exportCheatsheetPdfClick}
             onImportRankings={importRankingsXlsxClick}
             onOpenHowTo={() => setShowHowTo(true)}
+            activeView={activeView}
+            onOpenDraftCompanion={() => setActiveView("draftCompanion")}
+            onOpenCompareRankings={() => setActiveView("compareRankings")}
           />
         </div>
 
@@ -806,108 +928,128 @@ export default function App() {
           }}
         />
 
-        {/* Main content */}
-        <div
-          style={{
-            display: "grid",
-            // Keep the Board column sized to the board itself so the header/logo
-            // stays centered relative to the board (not the window).
-            gridTemplateColumns: "520px max-content",
-            gridTemplateRows: "1fr",
-            columnGap: 12,
-            rowGap: 12,
-            flex: 1,
-            minHeight: 0,
-            justifyContent: "center",
+        <input
+          ref={compareFileInputRef}
+          type="file"
+          accept=".xlsx,.xls,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          style={{ display: "none" }}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            importCompareRankingsFile(file);
+            e.currentTarget.value = "";
           }}
-        >
-          <div
-            style={{
-              border: "1px solid var(--border-0)",
-              background: "var(--panel-bg)",
-              borderRadius: 12,
-              padding: 8,
-              overflow: "hidden",
-              display: "flex",
-              flexDirection: "column",
-              minHeight: 0,
-            }}
-          >
-            <RankingsList
-              rankingsListKey={rankingsListKey}
-              setRankingsListKey={setRankingsListKey}
-              rankingIds={rankingIds}
-              rankingsRankingIds={rankingIdsByList["Rankings"]}
-              playersById={playersById}
-              tiersByPos={tiersByPos}
-              draftedIds={draftedIds}
-              onToggleDrafted={toggleDrafted}
-              hideKickers={hideKickers}
-              setHideKickers={setHideKickers}
-              hideDefenses={hideDefenses}
-              setHideDefenses={setHideDefenses}
-              favoriteIds={favoriteIds}
-              onToggleFavorite={toggleFavorite}
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-              getColor={posColor}
-              onMove={moveRankings}
-              ktcValueMode={ktcValueMode}
-              onChangeKtcValueMode={setKtcValueMode}
-              adpFormat={adpFormat}
-              onChangeAdpFormat={setAdpFormat}
-              consensusFormat={consensusFormat}
-              onChangeConsensusFormat={setConsensusFormat}
-              onSetAsRankings={setActiveSourceAsRankings}
-            />
-          </div>
+        />
 
+        {/* Main content */}
+        {activeView === "compareRankings" ? (
+          <CompareRankingsView
+            columns={compareColumns}
+            playersById={playersById}
+            onImportRankings={importCompareRankingsClick}
+            onReorderColumns={onCompareColumnReorder}
+            onMoveMyRankings={onCompareMyRankingsMove}
+            onRemoveColumn={onRemoveCompareColumn}
+          />
+        ) : (
           <div
             style={{
+              display: "grid",
+              gridTemplateColumns: "520px max-content",
+              gridTemplateRows: "1fr",
+              columnGap: 12,
+              rowGap: 12,
               flex: 1,
-              minWidth: 0,
               minHeight: 0,
-              display: "flex",
-              flexDirection: "column",
+              justifyContent: "center",
             }}
           >
-            <div className="boardScroll">
+            <div
+              style={{
+                border: "1px solid var(--border-0)",
+                background: "var(--panel-bg)",
+                borderRadius: 12,
+                padding: 8,
+                overflow: "hidden",
+                display: "flex",
+                flexDirection: "column",
+                minHeight: 0,
+              }}
+            >
+              <RankingsList
+                rankingsListKey={rankingsListKey}
+                setRankingsListKey={setRankingsListKey}
+                rankingIds={rankingIds}
+                rankingsRankingIds={rankingIdsByList["Rankings"]}
+                playersById={playersById}
+                tiersByPos={tiersByPos}
+                draftedIds={draftedIds}
+                onToggleDrafted={toggleDrafted}
+                hideKickers={hideKickers}
+                setHideKickers={setHideKickers}
+                hideDefenses={hideDefenses}
+                setHideDefenses={setHideDefenses}
+                favoriteIds={favoriteIds}
+                onToggleFavorite={toggleFavorite}
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                getColor={posColor}
+                onMove={moveRankings}
+                ktcValueMode={ktcValueMode}
+                onChangeKtcValueMode={setKtcValueMode}
+                adpFormat={adpFormat}
+                onChangeAdpFormat={setAdpFormat}
+                consensusFormat={consensusFormat}
+                onChangeConsensusFormat={setConsensusFormat}
+                onSetAsRankings={setActiveSourceAsRankings}
+              />
+            </div>
 
-              <Board
-              allowRankingsReorder={rankingsListKey === "Rankings"}
-              favoriteIds={favoriteIds}
-              boardTab={boardTab}
-              setBoardTab={setBoardTab}
-              rounds={rounds}
-              setRounds={setRounds}
-              teams={teams}
-              setTeams={setTeams}
-              onAddPlayer={addPlayerToRankings}
-              draftStyle={draftStyle}
-              setDraftStyle={setDraftStyle}
-              rankingIds={boardRankingIds}
-              rankingsRankingIds={rankingIdsByList["Rankings"]}
-              rankingsTiersByPos={tiersByPosByList["Rankings"]}
-              onUpdateRankingsTiersByPos={onUpdateRankingsTiersByPos}
-              playersById={playersById}
-              tiersByPos={boardTiersByPos}
-              onUpdateTiersByPos={onUpdateTiersByPos}
-              draftedIds={draftedIds}
-              onToggleDrafted={toggleDrafted}
-              clearAllDrafted={clearAllDrafted}
-              teamNames={teamNames}
-              setTeamNames={setTeamNames}
-              draftSlots={draftSlots}
-              onAssignPlayerToDraftSlot={assignPlayerToDraftSlot}
-              posColor={posColor}
-              sensors={sensors}
-              onBoardDragEnd={onBoardDragEnd}
-              onDraftBoardDragEnd={onDraftBoardDragEnd}
-            />
-
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              <div className="boardScroll">
+                <Board
+                  allowRankingsReorder={rankingsListKey === "Rankings"}
+                  favoriteIds={favoriteIds}
+                  boardTab={boardTab}
+                  setBoardTab={setBoardTab}
+                  rounds={rounds}
+                  setRounds={setRounds}
+                  teams={teams}
+                  setTeams={setTeams}
+                  onAddPlayer={addPlayerToRankings}
+                  draftStyle={draftStyle}
+                  setDraftStyle={setDraftStyle}
+                  rankingIds={boardRankingIds}
+                  rankingsRankingIds={rankingIdsByList["Rankings"]}
+                  rankingsTiersByPos={tiersByPosByList["Rankings"]}
+                  onUpdateRankingsTiersByPos={onUpdateRankingsTiersByPos}
+                  playersById={playersById}
+                  tiersByPos={boardTiersByPos}
+                  onUpdateTiersByPos={onUpdateTiersByPos}
+                  draftedIds={draftedIds}
+                  onToggleDrafted={toggleDrafted}
+                  clearAllDrafted={clearAllDrafted}
+                  teamNames={teamNames}
+                  setTeamNames={setTeamNames}
+                  draftSlots={draftSlots}
+                  onAssignPlayerToDraftSlot={assignPlayerToDraftSlot}
+                  posColor={posColor}
+                  sensors={sensors}
+                  onBoardDragEnd={onBoardDragEnd}
+                  onDraftBoardDragEnd={onDraftBoardDragEnd}
+                />
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
