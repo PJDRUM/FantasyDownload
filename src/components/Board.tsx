@@ -980,6 +980,7 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
               onUpdateTiersByPos={cheatsheetOnUpdateTiersByPos}
               draftedIds={draftedIds}
               onToggleDrafted={onToggleDrafted}
+              allowDraftToggle={!mobileMode}
               posColor={posColor}
               fitToViewport={mobileMode}
             />
@@ -1046,7 +1047,7 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                         background: "transparent",
                         color: "var(--text-0)",
                         fontWeight: 800,
-                        fontSize: mobileMode ? 16 : 13,
+                        fontSize: mobileMode ? 12 : 13,
                         textAlign: "center",
                         padding: 2,
                       }}

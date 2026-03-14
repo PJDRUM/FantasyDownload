@@ -112,6 +112,7 @@ export default function Cheatsheet(props: {
 
   draftedIds: Set<string>;
   onToggleDrafted: (id: string) => void;
+  allowDraftToggle?: boolean;
 
   posColor: (pos: Position) => string;
   fitToViewport?: boolean;
@@ -125,6 +126,7 @@ export default function Cheatsheet(props: {
     onUpdateTiersByPos,
     draftedIds,
     onToggleDrafted,
+    allowDraftToggle = true,
     posColor,
     fitToViewport = false,
   } = props;
@@ -505,8 +507,8 @@ export default function Cheatsheet(props: {
                               <button
                                 key={id}
                                 type="button"
-                                onClick={() => onToggleDrafted(id)}
-                                title={drafted ? "Undraft player" : "Draft player"}
+                                onClick={allowDraftToggle ? () => onToggleDrafted(id) : undefined}
+                                title={allowDraftToggle ? (drafted ? "Undraft player" : "Draft player") : undefined}
                                 style={{
                                   all: "unset",
                                   display: "grid",
@@ -514,7 +516,7 @@ export default function Cheatsheet(props: {
                                   gap: 8,
                                   alignItems: "center",
                                   padding: "4px 2px",
-                                  cursor: "pointer",
+                                  cursor: allowDraftToggle ? "pointer" : "default",
                                   opacity: drafted ? 0.35 : 1,
                                   textDecoration: drafted ? "line-through" : "none",
                                   borderBottom: "1px solid rgba(255,255,255,0.05)",

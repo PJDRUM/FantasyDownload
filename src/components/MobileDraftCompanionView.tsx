@@ -13,6 +13,7 @@ const MOBILE_SOURCE_TABS: Array<{ key: RankingsListKey; label: string }> = [
   { key: "ADP", label: "Redraft ADP" },
   { key: "KTC", label: "Dynasty Values" },
 ];
+type ScoringFormat = "standard" | "halfPpr" | "ppr";
 
 function normalizeMobileSearch(value: string) {
   return value
@@ -21,6 +22,13 @@ function normalizeMobileSearch(value: string) {
     .replace(/[^\p{L}\p{N}\s]/gu, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function formatMobileMetricValue(value: unknown) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+  if (Math.abs(value) >= 1000) return Math.round(value).toLocaleString();
+  if (Number.isInteger(value)) return String(value);
+  return value.toFixed(1);
 }
 
 type MobileDraftCompanionViewProps = {
@@ -57,6 +65,12 @@ type MobileDraftCompanionViewProps = {
   onMoveRankings: (fromIndex: number, toIndex: number) => void;
   onImportRankings: () => void;
   onExportRankings: () => void;
+  ktcValueMode: "1qb" | "2qb";
+  onChangeKtcValueMode: React.Dispatch<React.SetStateAction<"1qb" | "2qb">>;
+  adpFormat: ScoringFormat;
+  onChangeAdpFormat: React.Dispatch<React.SetStateAction<ScoringFormat>>;
+  consensusFormat: ScoringFormat;
+  onChangeConsensusFormat: React.Dispatch<React.SetStateAction<ScoringFormat>>;
 };
 
 function MobileRankingRow(props: {
@@ -69,8 +83,9 @@ function MobileRankingRow(props: {
   tabletMode: boolean;
   posColor: (pos: Position) => string;
   onToggleDrafted: (id: string) => void;
+  metricValue?: string;
 }) {
-  const { id, index, rank, player, drafted, sortable, tabletMode, posColor, onToggleDrafted } = props;
+  const { id, index, rank, player, drafted, sortable, tabletMode, posColor, onToggleDrafted, metricValue } = props;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
     disabled: !sortable,
@@ -92,7 +107,13 @@ function MobileRankingRow(props: {
         transition,
         opacity: isDragging ? 0.88 : 1,
         display: "grid",
-        gridTemplateColumns: tabletMode ? "50px 32px minmax(0, 1fr) 38px" : "42px 24px minmax(0, 1fr) 32px",
+        gridTemplateColumns: metricValue
+          ? tabletMode
+            ? "50px 32px minmax(0, 1fr) 64px 38px"
+            : "42px 24px minmax(0, 1fr) 54px 32px"
+          : tabletMode
+            ? "50px 32px minmax(0, 1fr) 38px"
+            : "42px 24px minmax(0, 1fr) 32px",
         alignItems: "center",
         gap: tabletMode ? 10 : 8,
         padding: tabletMode ? "10px 14px" : "6px 10px",
@@ -162,6 +183,24 @@ function MobileRankingRow(props: {
         </div>
       </div>
 
+      {metricValue ? (
+        <div
+          style={{
+            color: "rgba(255,255,255,0.9)",
+            fontSize: tabletMode ? 13 : 11,
+            fontWeight: 800,
+            lineHeight: 1.1,
+            textAlign: "right",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {metricValue}
+        </div>
+      ) : null}
+
       <button
         type="button"
         aria-label={`Reorder ${player.name}`}
@@ -225,6 +264,12 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
     onMoveRankings,
     onImportRankings,
     onExportRankings,
+    ktcValueMode,
+    onChangeKtcValueMode,
+    adpFormat,
+    onChangeAdpFormat,
+    consensusFormat,
+    onChangeConsensusFormat,
   } = props;
 
   const collapsedPeekHeight = 18;
@@ -556,6 +601,97 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                 );
               })}
             </div>
+            {rankingsListKey === "KTC" ? (
+              <div
+                role="group"
+                aria-label="Dynasty values format"
+                style={{
+                  display: "flex",
+                  gap: isTablet ? 8 : 6,
+                  overflowX: "auto",
+                  marginBottom: isTablet ? 10 : 8,
+                  paddingBottom: 2,
+                  scrollbarWidth: "none",
+                  msOverflowStyle: "none",
+                }}
+              >
+                {[
+                  { id: "1qb" as const, label: "1QB" },
+                  { id: "2qb" as const, label: "2QB" },
+                ].map(({ id, label }) => {
+                  const active = ktcValueMode === id;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => onChangeKtcValueMode(id)}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      style={{
+                        flex: "0 0 auto",
+                        padding: isTablet ? "8px 13px" : "6px 10px",
+                        borderRadius: 999,
+                        border: active ? "1px solid rgba(255,255,255,0.2)" : "1px solid rgba(255,255,255,0.1)",
+                        background: active ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.05)",
+                        color: "var(--text-0)",
+                        fontSize: isTablet ? 12 : 10,
+                        fontWeight: 800,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : rankingsListKey === "ADP" || rankingsListKey === "Consensus" ? (
+              <div
+                role="group"
+                aria-label={rankingsListKey === "ADP" ? "ADP scoring format" : "Consensus scoring format"}
+                style={{
+                  display: "flex",
+                  gap: isTablet ? 8 : 6,
+                  overflowX: "auto",
+                  marginBottom: isTablet ? 10 : 8,
+                  paddingBottom: 2,
+                  scrollbarWidth: "none",
+                  msOverflowStyle: "none",
+                }}
+              >
+                {[
+                  { id: "standard" as const, label: "Standard" },
+                  { id: "halfPpr" as const, label: "Half PPR" },
+                  { id: "ppr" as const, label: "PPR" },
+                ].map(({ id, label }) => {
+                  const active = (rankingsListKey === "ADP" ? adpFormat : consensusFormat) === id;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => {
+                        if (rankingsListKey === "ADP") onChangeAdpFormat(id);
+                        else onChangeConsensusFormat(id);
+                      }}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      style={{
+                        flex: "0 0 auto",
+                        padding: isTablet ? "8px 13px" : "6px 10px",
+                        borderRadius: 999,
+                        border: active ? "1px solid rgba(255,255,255,0.2)" : "1px solid rgba(255,255,255,0.1)",
+                        background: active ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.05)",
+                        color: "var(--text-0)",
+                        fontSize: isTablet ? 12 : 10,
+                        fontWeight: 800,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
             <div style={{ display: "flex", alignItems: "center", gap: isTablet ? 8 : 6 }}>
               <input
                 type="text"
@@ -650,20 +786,28 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
           >
             <DndContext sensors={mobileSensors} onDragEnd={onListDragEnd}>
               <SortableContext items={filteredRankingIds} strategy={verticalListSortingStrategy}>
-                {filteredRankingIds.map((id, index) => (
-                  <MobileRankingRow
-                    key={id}
-                    id={id}
-                    index={index}
-                    rank={rankingIds.indexOf(id) + 1}
-                    player={playersById[id]}
-                    drafted={draftedIds.has(id)}
-                    sortable={rankingsListKey === "Rankings" && activePosition === "ALL"}
-                    tabletMode={isTablet}
-                    posColor={posColor}
-                    onToggleDrafted={onToggleDrafted}
-                  />
-                ))}
+                {filteredRankingIds.map((id, index) => {
+                  const player = playersById[id];
+                  const metricValue = rankingsListKey === "KTC"
+                    ? formatMobileMetricValue(ktcValueMode === "1qb" ? (player as any)?.value : (player as any)?.sfValue)
+                    : undefined;
+
+                  return (
+                    <MobileRankingRow
+                      key={id}
+                      id={id}
+                      index={index}
+                      rank={rankingIds.indexOf(id) + 1}
+                      player={player}
+                      drafted={draftedIds.has(id)}
+                      sortable={rankingsListKey === "Rankings" && activePosition === "ALL"}
+                      tabletMode={isTablet}
+                      posColor={posColor}
+                      onToggleDrafted={onToggleDrafted}
+                      metricValue={metricValue}
+                    />
+                  );
+                })}
               </SortableContext>
             </DndContext>
           </div>

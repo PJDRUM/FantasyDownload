@@ -1185,6 +1185,12 @@ export default function App() {
             onMoveRankings={moveRankings}
             onImportRankings={importRankingsXlsxClick}
             onExportRankings={exportRankingsXlsxClick}
+            ktcValueMode={ktcValueMode}
+            onChangeKtcValueMode={setKtcValueMode}
+            adpFormat={adpFormat}
+            onChangeAdpFormat={setAdpFormat}
+            consensusFormat={consensusFormat}
+            onChangeConsensusFormat={setConsensusFormat}
           />
         ) : (
           <div
