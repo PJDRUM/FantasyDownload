@@ -62,12 +62,29 @@ function getConsensusValueForFormat(player: Player, format: ScoringFormat): numb
   return player.consensusPpr;
 }
 
+function shouldUseTouchLayout() {
+  if (typeof window === "undefined") return false;
+
+  const compactViewport = window.matchMedia("(max-width: 1100px)").matches;
+  if (compactViewport) return true;
+
+  const viewportMin = Math.min(window.innerWidth, window.innerHeight);
+  const viewportMax = Math.max(window.innerWidth, window.innerHeight);
+  const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
+  const standaloneDisplay = window.matchMedia("(display-mode: standalone)").matches;
+  const maxTouchPoints =
+    typeof navigator !== "undefined" && typeof navigator.maxTouchPoints === "number" ? navigator.maxTouchPoints : 0;
+  const isiPadLike =
+    typeof navigator !== "undefined" &&
+    (/iPad/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && maxTouchPoints > 1));
+
+  return (coarsePointer || standaloneDisplay || isiPadLike) && viewportMin <= 900 && viewportMax <= 1400;
+}
+
 export default function App() {
   const [activeView, setActiveView] = useState<AppView>("draftCompanion");
   const [modeNavLeftPx, setModeNavLeftPx] = useState<number | null>(null);
-  const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== "undefined" ? window.matchMedia("(max-width: 1100px)").matches : false
-  );
+  const [isMobile, setIsMobile] = useState(() => shouldUseTouchLayout());
   const [teams, setTeams] = useState(12);
   const [teamNames, setTeamNames] = useState<string[]>(
     Array.from({ length: 12 }, (_, i) => `Team ${i + 1}`)
@@ -79,11 +96,21 @@ export default function App() {
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
-    const media = window.matchMedia("(max-width: 1100px)");
-    const update = () => setIsMobile(media.matches);
+    const compactMedia = window.matchMedia("(max-width: 1100px)");
+    const standaloneMedia = window.matchMedia("(display-mode: standalone)");
+    const pointerMedia = window.matchMedia("(pointer: coarse)");
+    const update = () => setIsMobile(shouldUseTouchLayout());
     update();
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
+    compactMedia.addEventListener("change", update);
+    standaloneMedia.addEventListener("change", update);
+    pointerMedia.addEventListener("change", update);
+    window.addEventListener("resize", update);
+    return () => {
+      compactMedia.removeEventListener("change", update);
+      standaloneMedia.removeEventListener("change", update);
+      pointerMedia.removeEventListener("change", update);
+      window.removeEventListener("resize", update);
+    };
   }, []);
 
   useEffect(() => {
