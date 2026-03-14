@@ -153,33 +153,54 @@ function MobileRankingRow(props: {
         {rank}
       </div>
 
-      <div style={{ minWidth: 0 }}>
-        <div
+      <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: tabletMode ? 10 : 8 }}>
+        <img
+          src={player.imageUrl || "/headshot-placeholder.svg"}
+          alt={player.name}
           style={{
-            color: "var(--text-0)",
-            fontSize: tabletMode ? 14 : 12,
-            fontWeight: 900,
-            lineHeight: 1.1,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            opacity: drafted ? 0.82 : 1,
+            width: tabletMode ? 30 : 24,
+            height: tabletMode ? 30 : 24,
+            borderRadius: 999,
+            objectFit: "cover",
+            border: "1px solid rgba(255,255,255,0.12)",
+            background: "rgba(255,255,255,0.28)",
+            flex: "0 0 auto",
           }}
-        >
-          {player.name}
-        </div>
-        <div style={{ marginTop: tabletMode ? 3 : 2, display: "flex", alignItems: "center", gap: tabletMode ? 7 : 6, color: "rgba(255,255,255,0.68)", fontSize: tabletMode ? 11 : 10, fontWeight: 700 }}>
-          <span
+          onError={(event) => {
+            const img = event.currentTarget;
+            if (!img.src.includes("/headshot-placeholder.svg")) {
+              img.src = "/headshot-placeholder.svg";
+            }
+          }}
+        />
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div
             style={{
-              width: tabletMode ? 7 : 6,
-              height: tabletMode ? 7 : 6,
-              borderRadius: 999,
-              background: posColor(player.position),
-              flex: "0 0 auto",
+              color: "var(--text-0)",
+              fontSize: tabletMode ? 14 : 12,
+              fontWeight: 900,
+              lineHeight: 1.1,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              opacity: drafted ? 0.82 : 1,
             }}
-          />
-          <span>{player.position}</span>
-          <span>{player.team || "FA"}</span>
+          >
+            {player.name}
+          </div>
+          <div style={{ marginTop: tabletMode ? 3 : 2, display: "flex", alignItems: "center", gap: tabletMode ? 7 : 6, color: "rgba(255,255,255,0.68)", fontSize: tabletMode ? 11 : 10, fontWeight: 700 }}>
+            <span
+              style={{
+                width: tabletMode ? 7 : 6,
+                height: tabletMode ? 7 : 6,
+                borderRadius: 999,
+                background: posColor(player.position),
+                flex: "0 0 auto",
+              }}
+            />
+            <span>{player.position}</span>
+            <span>{player.team || "FA"}</span>
+          </div>
         </div>
       </div>
 
