@@ -109,9 +109,31 @@ function MobileRankingsBoardCard(props: {
 
         {player ? (
           <>
+            <img
+              src={player.imageUrl || "/headshot-placeholder.svg"}
+              alt={player.name}
+              style={{
+                position: "absolute",
+                top: tabletMode ? 2 : 1,
+                right: favorite ? (tabletMode ? 17 : 15) : 2,
+                width: tabletMode ? 28 : 21,
+                height: tabletMode ? 28 : 21,
+                borderRadius: 999,
+                objectFit: "cover",
+                border: "1px solid rgba(255,255,255,0.18)",
+                background: "rgba(255,255,255,0.3)",
+              }}
+              onError={(event) => {
+                const img = event.currentTarget;
+                if (!img.src.includes("/headshot-placeholder.svg")) {
+                  img.src = "/headshot-placeholder.svg";
+                }
+              }}
+            />
             <div
               style={{
                 marginTop: tabletMode ? 5 : 4,
+                paddingRight: tabletMode ? 32 : 25,
                 fontSize: tabletMode ? 8 : 7,
                 lineHeight: 1,
                 fontWeight: 650,
@@ -128,6 +150,7 @@ function MobileRankingsBoardCard(props: {
             <div
               style={{
                 marginTop: tabletMode ? 4 : 3,
+                paddingRight: tabletMode ? 32 : 25,
                 fontSize: tabletMode ? 8 : 7,
                 lineHeight: 1.06,
                 fontWeight: 700,
