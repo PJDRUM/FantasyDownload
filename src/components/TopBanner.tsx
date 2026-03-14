@@ -10,6 +10,7 @@ type TopBannerProps = {
   onOpenDraftCompanion: () => void;
   onOpenCompareRankings: () => void;
   modeNavLeftPx: number | null;
+  showModeNav?: boolean;
 };
 
 type PodcastsItem = { label: string; href?: string; imgSrc: string };
@@ -54,6 +55,7 @@ export default function TopBanner({
   onOpenDraftCompanion,
   onOpenCompareRankings,
   modeNavLeftPx,
+  showModeNav = true,
 }: TopBannerProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsMenuRef = useRef<HTMLDivElement>(null);
@@ -605,45 +607,51 @@ export default function TopBanner({
           </div>
         </div>
 
-        <div
-          style={{
-            position: "absolute",
-            left: modeNavLeftPx != null ? modeNavLeftPx : 420,
-            top: "50%",
-            transform: "translateY(-50%)",
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            flexWrap: "wrap",
-            pointerEvents: "none",
-          }}
-        >
-          <button
-            type="button"
-            onClick={onOpenDraftCompanion}
+        {showModeNav && (
+          <div
             style={{
-              ...navBtnBase,
-              cursor: "pointer",
-              background: activeView === "draftCompanion" ? "rgba(255,255,255,0.12)" : "transparent",
-              pointerEvents: "auto",
+              position: "absolute",
+              left: modeNavLeftPx != null ? modeNavLeftPx : 420,
+              top: "50%",
+              transform: "translateY(-50%)",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              pointerEvents: "none",
+              width: 470,
             }}
           >
-            <span>Draft Companion</span>
-          </button>
+            <button
+              type="button"
+              onClick={onOpenDraftCompanion}
+              style={{
+                ...navBtnBase,
+                cursor: "pointer",
+                background: activeView === "draftCompanion" ? "rgba(255,255,255,0.12)" : "transparent",
+                pointerEvents: "auto",
+                width: 220,
+                justifyContent: "center",
+              }}
+            >
+              <span>Draft Companion</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={onOpenCompareRankings}
-            style={{
-              ...navBtnBase,
-              cursor: "pointer",
-              background: activeView === "compareRankings" ? "rgba(255,255,255,0.12)" : "transparent",
-              pointerEvents: "auto",
-            }}
-          >
-            <span>Compare Rankings</span>
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={onOpenCompareRankings}
+              style={{
+                ...navBtnBase,
+                cursor: "pointer",
+                background: activeView === "compareRankings" ? "rgba(255,255,255,0.12)" : "transparent",
+                pointerEvents: "auto",
+                width: 220,
+                justifyContent: "center",
+              }}
+            >
+              <span>Compare Rankings</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {podcastsPortal}

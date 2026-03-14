@@ -26,6 +26,140 @@ function isReverseRound(roundIndex: number, style: DraftStyle) {
 }
 
 const BOARD_BG_URL = `${process.env.PUBLIC_URL || ""}/bg.jpg`;
+
+function MobileRankingsBoardCard(props: {
+  label: string;
+  player?: Player;
+  favorite?: boolean;
+  drafted?: boolean;
+  bg: string;
+  marginRight?: number;
+}) {
+  const { label, player, favorite = false, drafted = false, bg, marginRight = 3 } = props;
+
+  return (
+    <div
+      style={{
+        boxSizing: "border-box",
+        width: 82,
+        minWidth: 82,
+        height: 48,
+        marginRight,
+        padding: 4,
+        borderRadius: 11,
+        border: "1px solid rgba(255,255,255,0.12)",
+        outline: "1px solid rgba(0,0,0,0.18)",
+        background: bg,
+        position: "relative",
+        overflow: "hidden",
+        opacity: drafted ? 0.55 : 1,
+        filter: drafted ? "grayscale(18%)" : undefined,
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "rgba(0,0,0,0.1)",
+          pointerEvents: "none",
+        }}
+      />
+
+      {favorite ? (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: 4,
+            right: 5,
+            color: "#fbbf24",
+            fontSize: 11,
+            lineHeight: 1,
+            zIndex: 2,
+            pointerEvents: "none",
+          }}
+        >
+          ★
+        </div>
+      ) : null}
+
+      <div
+        style={{
+          position: "relative",
+          zIndex: 1,
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "stretch",
+        }}
+      >
+        <div
+          style={{
+            fontSize: 8,
+            lineHeight: 1,
+            fontWeight: 650,
+            color: "rgba(255,255,255,0.78)",
+            letterSpacing: -0.1,
+          }}
+        >
+          {label}
+        </div>
+
+        {player ? (
+          <>
+            <div
+              style={{
+                marginTop: 4,
+                fontSize: 7,
+                lineHeight: 1,
+                fontWeight: 650,
+                color: "rgba(255,255,255,0.76)",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                letterSpacing: -0.1,
+              }}
+            >
+              {player.position} - {player.team || "FA"}
+            </div>
+
+            <div
+              style={{
+                marginTop: 3,
+                fontSize: 7,
+                lineHeight: 1.06,
+                fontWeight: 700,
+                color: "rgba(255,255,255,0.97)",
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+                wordBreak: "break-word",
+                letterSpacing: -0.08,
+              }}
+            >
+              {player.name}
+            </div>
+          </>
+        ) : (
+          <div
+            style={{
+              marginTop: "auto",
+              fontSize: 18,
+              lineHeight: 1,
+              fontWeight: 700,
+              color: "rgba(255,255,255,0.78)",
+            }}
+          >
+            —
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Board(props: {
   favoriteIds: Set<string>;
 
@@ -73,6 +207,10 @@ export default function Board(props: {
   onBoardDragEnd: (event: DragEndEvent) => void;
   onDraftBoardDragEnd: (event: DragEndEvent) => void;
   onAssignPlayerToDraftSlot: (slotIndex: number, playerId: string) => void;
+  availableTabs?: BoardTab[];
+  mobileMode?: boolean;
+  allowDraftBoardReorder?: boolean;
+  showTabSwitcher?: boolean;
 }) {
   const {
     favoriteIds,
@@ -104,6 +242,10 @@ export default function Board(props: {
     onBoardDragEnd,
     onDraftBoardDragEnd,
     onAssignPlayerToDraftSlot,
+    availableTabs,
+    mobileMode = false,
+    allowDraftBoardReorder = true,
+    showTabSwitcher = true,
   } = props;
 
   // Cheatsheet should be driven purely by the Rankings list (order + tiers) so it looks identical
@@ -178,6 +320,18 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
   const isTeams = boardTab === "Teams";
   const isDraft = boardTab === "Draft Board";
   const isRank = boardTab === "Rankings Board";
+  const boardCellWidth = mobileMode ? 82 : 140;
+  const boardCellMinWidth = mobileMode ? 82 : 140;
+  const draftBoardCellMinHeight = mobileMode ? 48 : undefined;
+  const boardCellRadius = mobileMode ? 12 : 16;
+  const boardCellPadding = mobileMode ? 3 : 8;
+  const boardCellMarginRight = mobileMode ? 3 : 4;
+  const showBoardCellImages = !mobileMode;
+  const visibleTabs = availableTabs ?? ["Rankings Board", "Draft Board", "Cheatsheet", "Teams"];
+  const showRankTab = visibleTabs.includes("Rankings Board");
+  const showDraftTab = visibleTabs.includes("Draft Board");
+  const showCheatsheetTab = visibleTabs.includes("Cheatsheet");
+  const showTeamsTab = visibleTabs.includes("Teams");
 
   // Measure the non-cheatsheet board (Rankings/Draft) so Cheatsheet can reserve the same space.
   const tableSizeRef = React.useRef<HTMLDivElement | null>(null);
@@ -274,15 +428,15 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
 
         boxSizing: "border-box",
         overflow: "auto",
-        padding: 12,
-        borderRadius: 16,
-        border: "1px solid var(--border-0)",
+        padding: mobileMode ? 0 : 12,
+        borderRadius: mobileMode ? 0 : 16,
+        border: mobileMode ? "none" : "1px solid var(--border-0)",
         backgroundColor: "var(--panel-bg)",
         backgroundImage: `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url(${BOARD_BG_URL})`,
         backgroundSize: "100% 100%",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
-        boxShadow: "var(--shadow-0)",
+        boxShadow: mobileMode ? "none" : "var(--shadow-0)",
       }}
     >
       <style>{`
@@ -361,110 +515,116 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
           msOverflowStyle: "none",
         }}
       >
-        {/* Board Tabs */}
-        <div
-          style={{
-            boxSizing: "border-box",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 8,
-            gap: 12,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {/* ADP/Draft segmented control */}
-            <div
-              style={{
-                boxSizing: "border-box",
-                display: "flex",
-                gap: 4,
-                alignItems: "center",
-                padding: 4,
-                borderRadius: 999,
-                border: "1px solid var(--border-0)",
-                background: "var(--panel-bg)",
-              }}
-            >
-              <button
-                className="tabBtn"
-                onClick={() => setBoardTab("Rankings Board")}
+        {showTabSwitcher && (
+          <div
+            style={{
+              boxSizing: "border-box",
+              display: "flex",
+              justifyContent: mobileMode ? "flex-start" : "space-between",
+              alignItems: "center",
+              marginBottom: 8,
+              gap: 12,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {/* ADP/Draft segmented control */}
+              <div
                 style={{
-                  ...pillBase,
-                  ...(isRank ? pillActive : {}),
+                  boxSizing: "border-box",
+                  display: "flex",
+                  gap: 4,
+                  alignItems: "center",
+                  padding: 4,
+                  borderRadius: 999,
+                  border: "1px solid var(--border-0)",
+                  background: "var(--panel-bg)",
                 }}
-                title="Rankings Board"
               >
-                Rankings Board
-              </button>
+                {showRankTab && (
+                  <button
+                    className="tabBtn"
+                    onClick={() => setBoardTab("Rankings Board")}
+                    style={{
+                      ...pillBase,
+                      ...(isRank ? pillActive : {}),
+                    }}
+                    title="Rankings Board"
+                  >
+                    Rankings Board
+                  </button>
+                )}
 
-              <button
-                className="tabBtn"
-                onClick={() => setBoardTab("Draft Board")}
-                style={{
-                  ...pillBase,
-                  ...(isDraft ? pillActive : {}),
-                }}
-                title="Draft Board"
-              >
-                Draft Board
-              </button>
+                {showDraftTab && (
+                  <button
+                    className="tabBtn"
+                    onClick={() => setBoardTab("Draft Board")}
+                    style={{
+                      ...pillBase,
+                      ...(isDraft ? pillActive : {}),
+                    }}
+                    title="Draft Board"
+                  >
+                    Draft Board
+                  </button>
+                )}
+              </div>
+
+              {showCheatsheetTab && (
+                <div
+                  style={{
+                    boxSizing: "border-box",
+                    display: "flex",
+                    gap: 4,
+                    alignItems: "center",
+                    padding: 4,
+                    borderRadius: 999,
+                    border: "1px solid var(--border-0)",
+                    background: "var(--panel-bg)",
+                  }}
+                >
+                  <button
+                    className="tabBtn"
+                    onClick={() => setBoardTab("Cheatsheet")}
+                    style={{
+                      ...pillBase,
+                      ...(isCheat ? pillActive : {}),
+                    }}
+                    title="Cheatsheet"
+                  >
+                    Cheatsheet
+                  </button>
+                </div>
+              )}
+
+              {showTeamsTab && (
+                <div
+                  style={{
+                    boxSizing: "border-box",
+                    display: "flex",
+                    gap: 4,
+                    alignItems: "center",
+                    padding: 4,
+                    borderRadius: 999,
+                    border: "1px solid var(--border-0)",
+                    background: "var(--panel-bg)",
+                  }}
+                >
+                  <button
+                    className="tabBtn"
+                    onClick={() => setBoardTab("Teams")}
+                    style={{
+                      ...pillBase,
+                      ...(isTeams ? pillActive : {}),
+                    }}
+                    title="Teams"
+                  >
+                    Teams
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Cheatsheet as separate segmented control */}
-            <div
-              style={{
-                boxSizing: "border-box",
-                display: "flex",
-                gap: 4,
-                alignItems: "center",
-                padding: 4,
-                borderRadius: 999,
-                border: "1px solid var(--border-0)",
-                background: "var(--panel-bg)",
-              }}
-            >
-              <button
-                className="tabBtn"
-                onClick={() => setBoardTab("Cheatsheet")}
-                style={{
-                  ...pillBase,
-                  ...(isCheat ? pillActive : {}),
-                }}
-                title="Cheatsheet"
-              >
-                Cheatsheet
-              </button>
-            </div>
-
-            {/* Teams as separate segmented control */}
-            <div
-              style={{
-                boxSizing: "border-box",
-                display: "flex",
-                gap: 4,
-                alignItems: "center",
-                padding: 4,
-                borderRadius: 999,
-                border: "1px solid var(--border-0)",
-                background: "var(--panel-bg)",
-              }}
-            >
-              <button
-                className="tabBtn"
-                onClick={() => setBoardTab("Teams")}
-                style={{
-                  ...pillBase,
-                  ...(isTeams ? pillActive : {}),
-                }}
-                title="Teams"
-              >
-                Teams
-              </button>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {!mobileMode && <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
 
             <div
               style={{
@@ -659,19 +819,20 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
             >
               Undraft All
             </button>
+            </div>}
           </div>
-        </div>
+        )}
 
         {boardTab === "Rankings Board" ? (
           <div ref={tableSizeRef}>
-            <DndContext sensors={allowRankingsReorder ? sensors : undefined} onDragEnd={allowRankingsReorder ? onBoardDragEnd : undefined}>
-              <SortableContext items={rankingBoardSortableIds} strategy={rectSortingStrategy}>
+            {mobileMode ? (
+              <>
                 {Array.from({ length: rounds }).map((_, roundIndex) => {
                   const reverse = isReverseRound(roundIndex, draftStyle);
                   const roundNumber = roundIndex + 1;
 
                   return (
-                    <div key={roundIndex} style={{ marginBottom: 2 }}>
+                    <div key={roundIndex} style={{ marginBottom: 3 }}>
                       <div style={{ display: "flex" }}>
                         {Array.from({ length: teams }).map((_, teamIndex) => {
                           const pickIndex = reverse
@@ -680,56 +841,117 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
 
                           const playerId = rankingIds[pickIndex] ?? null;
                           const player = playerId ? playersById[playerId] : undefined;
-
                           const pickInRound = reverse ? teams - teamIndex : teamIndex + 1;
                           const baseLabel = `${roundNumber}.${String(pickInRound).padStart(2, "0")}`;
                           const label = reverse ? `← ${baseLabel}` : `${baseLabel} →`;
 
-                          if (!playerId || !player) {
-                            return (
-                              <BoardCell
-                                key={`rankingslot:${pickIndex}`}
-                                id={`rankingslot:${pickIndex}`}
-                                drafted={false}
-                                dimWhenDrafted={false}
-                                showDraftedBanner={false}
-                                onToggleDrafted={() => {}}
-                                bg={"var(--surface-0)"}
-                                sortable={false}
-                              >
-                                <CellContent label={label} name={"—"} position={" "} imageUrl={undefined} showDash={false} />
-                              </BoardCell>
-                            );
-                          }
-
                           return (
-                            <BoardCell
-                              key={playerId}
-                              id={playerId}
-                              drafted={draftedIds.has(playerId)}
-                              favorite={favoriteIds.has(playerId)}
-                              dimWhenDrafted={true}
-                              showDraftedBanner={true}
-                              onToggleDrafted={onToggleDrafted}
-                              bg={posColor(player.position)}
-                              sortable={allowRankingsReorder}
-                            >
-                              <CellContent
-                                label={label}
-                                name={player.name}
-                                position={player.position}
-                                imageUrl={player.imageUrl}
-                                showDash
-                              />
-                            </BoardCell>
+                            <MobileRankingsBoardCard
+                              key={playerId ?? `rankingslot:${pickIndex}`}
+                              label={label}
+                              player={player}
+                              favorite={playerId ? favoriteIds.has(playerId) : false}
+                              drafted={playerId ? draftedIds.has(playerId) : false}
+                              bg={player ? posColor(player.position) : "var(--surface-0)"}
+                              marginRight={boardCellMarginRight}
+                            />
                           );
                         })}
                       </div>
                     </div>
                   );
                 })}
-              </SortableContext>
-            </DndContext>
+              </>
+            ) : (
+              <DndContext sensors={allowRankingsReorder ? sensors : undefined} onDragEnd={allowRankingsReorder ? onBoardDragEnd : undefined}>
+                <SortableContext items={rankingBoardSortableIds} strategy={rectSortingStrategy}>
+                  {Array.from({ length: rounds }).map((_, roundIndex) => {
+                    const reverse = isReverseRound(roundIndex, draftStyle);
+                    const roundNumber = roundIndex + 1;
+
+                    return (
+                      <div key={roundIndex} style={{ marginBottom: 2 }}>
+                        <div style={{ display: "flex" }}>
+                          {Array.from({ length: teams }).map((_, teamIndex) => {
+                            const pickIndex = reverse
+                              ? roundIndex * teams + (teams - 1 - teamIndex)
+                              : roundIndex * teams + teamIndex;
+
+                            const playerId = rankingIds[pickIndex] ?? null;
+                            const player = playerId ? playersById[playerId] : undefined;
+
+                            const pickInRound = reverse ? teams - teamIndex : teamIndex + 1;
+                            const baseLabel = `${roundNumber}.${String(pickInRound).padStart(2, "0")}`;
+                            const label = reverse ? `← ${baseLabel}` : `${baseLabel} →`;
+
+                            if (!playerId || !player) {
+                              return (
+                                <BoardCell
+                                  key={`rankingslot:${pickIndex}`}
+                                  id={`rankingslot:${pickIndex}`}
+                                  drafted={false}
+                                  dimWhenDrafted={false}
+                                  showDraftedBanner={false}
+                                  onToggleDrafted={() => {}}
+                                  bg={"var(--surface-0)"}
+                                  sortable={false}
+                                  width={boardCellWidth}
+                                  minWidth={boardCellMinWidth}
+                                  borderRadius={boardCellRadius}
+                                  padding={boardCellPadding}
+                                  marginRight={boardCellMarginRight}
+                                  clickable
+                                >
+                                  <CellContent
+                                    label={label}
+                                    name={"—"}
+                                    position={" "}
+                                    team={undefined}
+                                    imageUrl={undefined}
+                                    showDash={false}
+                                    showImage
+                                  />
+                                </BoardCell>
+                              );
+                            }
+
+                            return (
+                              <BoardCell
+                                key={playerId}
+                                id={playerId}
+                                drafted={draftedIds.has(playerId)}
+                                favorite={favoriteIds.has(playerId)}
+                                dimWhenDrafted={true}
+                                showDraftedBanner={true}
+                                onToggleDrafted={onToggleDrafted}
+                                bg={posColor(player.position)}
+                                sortable={allowRankingsReorder}
+                                width={boardCellWidth}
+                                minWidth={boardCellMinWidth}
+                                borderRadius={boardCellRadius}
+                                padding={boardCellPadding}
+                                marginRight={boardCellMarginRight}
+                                clickable
+                              >
+                                <CellContent
+                                  label={label}
+                                  name={player.name}
+                                  position={player.position}
+                                  team={player.team}
+                                  imageUrl={player.imageUrl}
+                                  showDash
+                                  showImage
+                                />
+                              </BoardCell>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </SortableContext>
+              </DndContext>
+            )}
           </div>
         ) : boardTab === "Cheatsheet" ? (
           <div
@@ -774,21 +996,24 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
           </div>
         ) : (
           <div ref={tableSizeRef}>
-            <DndContext sensors={sensors} onDragEnd={onDraftBoardDragEnd}>
+            <DndContext
+              sensors={allowDraftBoardReorder ? sensors : undefined}
+              onDragEnd={allowDraftBoardReorder ? onDraftBoardDragEnd : undefined}
+            >
               <div style={{ display: "flex" }}>
                 {Array.from({ length: teams }).map((_, teamIndex) => (
                   <div
                     key={teamIndex}
                     style={{
                       boxSizing: "border-box",
-                      width: 140,
-                      minWidth: 140,
-                      marginRight: 4,
-                      borderRadius: 16,
+                      width: boardCellWidth,
+                      minWidth: boardCellMinWidth,
+                      marginRight: boardCellMarginRight,
+                      borderRadius: boardCellRadius,
                       border: "1px solid rgba(255,255,255,0.10)",
                       outline: "1px solid rgba(0,0,0,0.18)",
                       background: "var(--panel-bg)",
-                      padding: 8,
+                      padding: boardCellPadding,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -821,7 +1046,10 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                 ))}
               </div>
 
-              <SortableContext items={draftSlots.map((_, i) => `draftslot:${i}`)} strategy={horizontalListSortingStrategy}>
+              <SortableContext
+                items={draftSlots.map((_, i) => `draftslot:${i}`)}
+                strategy={horizontalListSortingStrategy}
+              >
                 {Array.from({ length: rounds }).map((_, roundIndex) => {
                   const reverse = isReverseRound(roundIndex, draftStyle);
                   const roundNumber = roundIndex + 1;
@@ -847,7 +1075,7 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                                 dimWhenDrafted={false}
                                 showDraftedBanner={false}
                                 onToggleDrafted={() => {}}
-                                onClick={(e) => {
+                                onClick={mobileMode ? () => {} : (e) => {
                                   const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
                                   setDraftRemoveMenu(null);
                                   setDraftAssignMenu({
@@ -858,8 +1086,26 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                                   });
                                 }}
                                 bg={"var(--surface-0)"}
+                                sortable={allowDraftBoardReorder}
+                                width={boardCellWidth}
+                                minWidth={boardCellMinWidth}
+                                minHeight={draftBoardCellMinHeight}
+                                borderRadius={boardCellRadius}
+                                padding={boardCellPadding}
+                                marginRight={boardCellMarginRight}
+                                clickable={!mobileMode}
                               >
-                                <CellContent label={label} name={"—"} position={" "} imageUrl={undefined} showDash={false} />
+                                <CellContent
+                                  label={label}
+                                  name={"—"}
+                                  position={" "}
+                                  team={undefined}
+                                  imageUrl={undefined}
+                                  showDash={false}
+                                  showImage={showBoardCellImages}
+                                  compact={mobileMode}
+                                  clampNameLines={2}
+                                />
                               </BoardCell>
                             );
                           }
@@ -873,11 +1119,29 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                                 drafted={draftedIds.has(playerId)}
                                 favorite={favoriteIds.has(playerId)}
                                 dimWhenDrafted={false}
-                                showDraftedBanner={false}
+                              showDraftedBanner={false}
                                 onToggleDrafted={onToggleDrafted}
                                 bg={"var(--surface-0)"}
+                                sortable={allowDraftBoardReorder}
+                                width={boardCellWidth}
+                                minWidth={boardCellMinWidth}
+                                minHeight={draftBoardCellMinHeight}
+                                borderRadius={boardCellRadius}
+                                padding={boardCellPadding}
+                                marginRight={boardCellMarginRight}
+                                clickable={!mobileMode}
                               >
-                                <CellContent label={label} name={"—"} position={" "} imageUrl={undefined} showDash={false} />
+                              <CellContent
+                                label={label}
+                                name={"—"}
+                                position={" "}
+                                team={undefined}
+                                imageUrl={undefined}
+                                showDash={false}
+                                showImage={showBoardCellImages}
+                                compact={mobileMode}
+                                clampNameLines={2}
+                              />
                               </BoardCell>
                             );
                           }
@@ -890,8 +1154,8 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                               favorite={favoriteIds.has(playerId)}
                               dimWhenDrafted={false}
                               showDraftedBanner={false}
-                              onToggleDrafted={onToggleDrafted}
-                              onClick={(e) => {
+                              onToggleDrafted={mobileMode ? () => {} : onToggleDrafted}
+                              onClick={mobileMode ? () => {} : (e) => {
                                 const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
                                 setDraftAssignMenu(null);
                                 setDraftRemoveMenu({
@@ -904,13 +1168,25 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                                 });
                               }}
                               bg={posColor(player.position)}
+                              sortable={allowDraftBoardReorder}
+                              width={boardCellWidth}
+                              minWidth={boardCellMinWidth}
+                              minHeight={draftBoardCellMinHeight}
+                              borderRadius={boardCellRadius}
+                              padding={boardCellPadding}
+                              marginRight={boardCellMarginRight}
+                              clickable={!mobileMode}
                             >
                               <CellContent
                                 label={label}
                                 name={player.name}
                                 position={player.position}
+                                team={player.team}
                                 imageUrl={player.imageUrl}
                                 showDash={false}
+                                showImage={showBoardCellImages}
+                                compact={mobileMode}
+                                clampNameLines={2}
                               />
                             </BoardCell>
                           );
@@ -926,7 +1202,7 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
 
 
 {/* Draft-board: Assign Player menu */}
-{isDraft && draftAssignMenu && (
+{isDraft && !mobileMode && draftAssignMenu && (
   <div
     onClick={() => setDraftAssignMenu(null)}
     style={{
@@ -980,7 +1256,7 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
 
 
 {/* Draft-board: Remove Player menu */}
-{isDraft && draftRemoveMenu && (
+{isDraft && !mobileMode && draftRemoveMenu && (
   <div
     onClick={() => setDraftRemoveMenu(null)}
     style={{
@@ -1034,7 +1310,7 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
   </div>
 )}
 {/* Draft-board: Assign Player modal */}
-{isDraft && draftAssignModal && (
+{isDraft && !mobileMode && draftAssignModal && (
   <div
     onClick={() => setDraftAssignModal(null)}
     style={{

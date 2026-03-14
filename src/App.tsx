@@ -11,6 +11,7 @@ import Board, { type BoardTab, type DraftStyle } from "./components/Board";
 import HowToModal from "./components/HowToModal";
 import TopBanner from "./components/TopBanner";
 import CompareRankingsView, { type CompareRankingsColumn } from "./components/CompareRankingsView";
+import MobileDraftCompanionView from "./components/MobileDraftCompanionView";
 
 import { posColor } from "./utils/posColor";
 import { exportCheatsheetPdf } from "./utils/cheatsheetPdf";
@@ -64,6 +65,9 @@ function getConsensusValueForFormat(player: Player, format: ScoringFormat): numb
 export default function App() {
   const [activeView, setActiveView] = useState<AppView>("draftCompanion");
   const [modeNavLeftPx, setModeNavLeftPx] = useState<number | null>(null);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(max-width: 900px)").matches : false
+  );
   const [teams, setTeams] = useState(12);
   const [teamNames, setTeamNames] = useState<string[]>(
     Array.from({ length: 12 }, (_, i) => `Team ${i + 1}`)
@@ -72,6 +76,20 @@ export default function App() {
   useEffect(() => {
     setTeamNames((prev) => Array.from({ length: teams }, (_, i) => prev[i] ?? `Team ${i + 1}`));
   }, [teams]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const media = window.matchMedia("(max-width: 900px)");
+    const update = () => setIsMobile(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    setActiveView("draftCompanion");
+  }, [isMobile]);
 
   const [draftStyle, setDraftStyle] = useState<DraftStyle>("Snake Draft");
 
@@ -1026,19 +1044,21 @@ export default function App() {
           gap: 16,
         }}
       >
-        {/* Header */}
-        <div className="appHeaderWrap">
-          <TopBanner
-            onExportRankings={exportRankingsXlsxClick}
-            onExportCheatsheetPdf={exportCheatsheetPdfClick}
-            onImportRankings={importRankingsXlsxClick}
-            onOpenHowTo={() => setShowHowTo(true)}
-            activeView={activeView}
-            onOpenDraftCompanion={() => setActiveView("draftCompanion")}
-            onOpenCompareRankings={() => setActiveView("compareRankings")}
-            modeNavLeftPx={modeNavLeftPx}
-          />
-        </div>
+        {!isMobile && (
+          <div className="appHeaderWrap">
+            <TopBanner
+              onExportRankings={exportRankingsXlsxClick}
+              onExportCheatsheetPdf={exportCheatsheetPdfClick}
+              onImportRankings={importRankingsXlsxClick}
+              onOpenHowTo={() => setShowHowTo(true)}
+              activeView={activeView}
+              onOpenDraftCompanion={() => setActiveView("draftCompanion")}
+              onOpenCompareRankings={() => setActiveView("compareRankings")}
+              modeNavLeftPx={modeNavLeftPx}
+              showModeNav={!isMobile}
+            />
+          </div>
+        )}
 
         <input
           ref={fileInputRef}
@@ -1067,7 +1087,7 @@ export default function App() {
         />
 
         {/* Main content */}
-        {activeView === "compareRankings" ? (
+        {!isMobile && activeView === "compareRankings" ? (
           <CompareRankingsView
             columns={compareColumns}
             playersById={playersById}
@@ -1075,6 +1095,40 @@ export default function App() {
             onReorderColumns={onCompareColumnReorder}
             onMoveMyRankings={onCompareMyRankingsMove}
             onRemoveColumn={onRemoveCompareColumn}
+          />
+        ) : isMobile ? (
+          <MobileDraftCompanionView
+            favoriteIds={favoriteIds}
+            boardTab={boardTab === "Cheatsheet" || boardTab === "Teams" ? "Rankings Board" : boardTab}
+            setBoardTab={setBoardTab}
+            rounds={rounds}
+            setRounds={setRounds}
+            teams={teams}
+            setTeams={setTeams}
+            onAddPlayer={addPlayerToRankings}
+            draftStyle={draftStyle}
+            setDraftStyle={setDraftStyle}
+            rankingIds={rankingIdsByList["Rankings"]}
+            rankingsRankingIds={rankingIdsByList["Rankings"]}
+            rankingsTiersByPos={tiersByPosByList["Rankings"]}
+            playersById={playersById}
+            tiersByPos={tiersByPosByList["Rankings"]}
+            onUpdateTiersByPos={onUpdateRankingsTiersByPos}
+            onUpdateRankingsTiersByPos={onUpdateRankingsTiersByPos}
+            draftedIds={draftedIds}
+            onToggleDrafted={toggleDrafted}
+            clearAllDrafted={clearAllDrafted}
+            teamNames={teamNames}
+            setTeamNames={setTeamNames}
+            draftSlots={draftSlots}
+            onAssignPlayerToDraftSlot={assignPlayerToDraftSlot}
+            posColor={posColor}
+            sensors={sensors}
+            onBoardDragEnd={onBoardDragEnd}
+            onDraftBoardDragEnd={onDraftBoardDragEnd}
+            onMoveRankings={moveRankings}
+            onImportRankings={importRankingsXlsxClick}
+            onExportRankings={exportRankingsXlsxClick}
           />
         ) : (
           <div

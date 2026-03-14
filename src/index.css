@@ -211,3 +211,8 @@ code {
   .appPanel { padding: 6px; border-radius: 10px; }
 }
 
+@media (max-width: 900px) {
+  :root { --top-links-bar-height: 0px; }
+  .topLinksBar { display: none; }
+  .appViewport { padding-top: 0; }
+}
