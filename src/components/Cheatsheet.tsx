@@ -1,7 +1,8 @@
 // src/components/Cheatsheet.tsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type { Position, Player } from "../models/Player";
 import type { TiersByPos } from "../utils/xlsxRankings";
+import { useFitZoomViewport } from "./useFitZoomViewport";
 
 function getPlayerRankValue(p: Player | undefined | null): number {
   if (!p) return Number.POSITIVE_INFINITY;
@@ -127,10 +128,7 @@ export default function Cheatsheet(props: {
     posColor,
     fitToViewport = false,
   } = props;
-  const viewportRef = useRef<HTMLDivElement | null>(null);
-  const contentRef = useRef<HTMLDivElement | null>(null);
-  const [fitScale, setFitScale] = useState(1);
-  const [contentSize, setContentSize] = useState({ width: 0, height: 0 });
+  const { viewportRef, contentRef, contentSize, totalScale, touchHandlers } = useFitZoomViewport(fitToViewport);
 
   const primaryRankingIds = useMemo(() => {
     return (rankingsRankingIds && rankingsRankingIds.length ? rankingsRankingIds : rankingIds) ?? [];
@@ -175,41 +173,6 @@ export default function Cheatsheet(props: {
     setTierBlocksByPos(computedTierBlocksByPos);
   }, [computedTierBlocksByPos]);
 
-  useEffect(() => {
-    if (!fitToViewport) {
-      setFitScale(1);
-      return;
-    }
-
-    const updateScale = () => {
-      const viewport = viewportRef.current;
-      const content = contentRef.current;
-      if (!viewport || !content) return;
-
-      const nextWidth = content.scrollWidth;
-      const nextHeight = content.scrollHeight;
-      const availableWidth = viewport.clientWidth;
-
-      setContentSize({ width: nextWidth, height: nextHeight });
-      setFitScale(nextWidth > 0 && availableWidth > 0 ? Math.min(1, availableWidth / nextWidth) : 1);
-    };
-
-    updateScale();
-
-    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateScale) : null;
-    if (resizeObserver) {
-      if (viewportRef.current) resizeObserver.observe(viewportRef.current);
-      if (contentRef.current) resizeObserver.observe(contentRef.current);
-    } else {
-      window.addEventListener("resize", updateScale);
-    }
-
-    return () => {
-      resizeObserver?.disconnect();
-      if (!resizeObserver) window.removeEventListener("resize", updateScale);
-    };
-  }, [fitToViewport, positions.length, tierBlocksByPos]);
-
   function commitTierBreaks(pos: Position, blocks: TierBlock[]) {
     if (!onUpdateTiersByPos) return;
     const breaks: string[] = [];
@@ -250,20 +213,22 @@ export default function Cheatsheet(props: {
   return (
     <div
       ref={viewportRef}
+      {...touchHandlers}
       style={{
         boxSizing: "border-box",
         width: fitToViewport ? "100%" : "fit-content",
         maxWidth: "100%",
         paddingTop: 8,
-        overflowX: fitToViewport ? "hidden" : "visible",
+        overflow: fitToViewport ? "auto" : "visible",
+        touchAction: fitToViewport ? "pan-x pan-y" : undefined,
       }}
     >
       <div
         style={
           fitToViewport
             ? {
-                width: contentSize.width ? contentSize.width * fitScale : "100%",
-                height: contentSize.height ? contentSize.height * fitScale : "auto",
+                width: contentSize.width ? contentSize.width * totalScale : "100%",
+                height: contentSize.height ? contentSize.height * totalScale : "auto",
               }
             : undefined
         }
@@ -276,7 +241,7 @@ export default function Cheatsheet(props: {
             gap: 10,
             alignItems: "start",
             width: "fit-content",
-            transform: fitToViewport ? `scale(${fitScale})` : undefined,
+            transform: fitToViewport ? `scale(${totalScale})` : undefined,
             transformOrigin: fitToViewport ? "top left" : undefined,
           }}
         >

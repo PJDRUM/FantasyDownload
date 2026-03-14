@@ -127,6 +127,24 @@ export default function App() {
     setActiveView("draftCompanion");
   }, [isMobile]);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+    const viewportMeta = document.querySelector('meta[name="viewport"]');
+    if (!viewportMeta) return undefined;
+
+    const previousContent = viewportMeta.getAttribute("content");
+    viewportMeta.setAttribute(
+      "content",
+      isMobile
+        ? "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+        : "width=device-width, initial-scale=1"
+    );
+
+    return () => {
+      viewportMeta.setAttribute("content", previousContent ?? "width=device-width, initial-scale=1");
+    };
+  }, [isMobile]);
+
   const [draftStyle, setDraftStyle] = useState<DraftStyle>("Snake Draft");
 
   // ----- fixed rankings lists -----

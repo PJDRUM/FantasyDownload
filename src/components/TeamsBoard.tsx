@@ -2,6 +2,7 @@ import React from "react";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, useDraggable, useDroppable } from "@dnd-kit/core";
 import type { Player, Position } from "../models/Player";
 import type { DraftStyle } from "./Board";
+import { useFitZoomViewport } from "./useFitZoomViewport";
 
 type StarterKey = "QB" | "RB" | "WR" | "TE" | "Flex" | "Superflex" | "K" | "DST";
 type StarterConfig = Record<StarterKey, number>;
@@ -421,10 +422,7 @@ export default function TeamsBoard(props: {
   const [starterConfig, setStarterConfig] = React.useState<StarterConfig>(DEFAULT_STARTER_CONFIG);
   const [teamOverrides, setTeamOverrides] = React.useState<TeamOverridesState>({});
   const [activeDrag, setActiveDrag] = React.useState<{ teamIndex: number; player: Player } | null>(null);
-  const viewportRef = React.useRef<HTMLDivElement | null>(null);
-  const contentRef = React.useRef<HTMLDivElement | null>(null);
-  const [fitScale, setFitScale] = React.useState(1);
-  const [contentSize, setContentSize] = React.useState({ width: 0, height: 0 });
+  const { viewportRef, contentRef, contentSize, totalScale, touchHandlers } = useFitZoomViewport(fitToViewport);
 
   const visibleStarterSlots = React.useMemo(() => buildVisibleStarterSlots(starterConfig), [starterConfig]);
   const nextPickingTeamIndex = React.useMemo(
@@ -582,57 +580,24 @@ export default function TeamsBoard(props: {
     [playersById, teamRosters, visibleStarterSlots]
   );
 
-  React.useEffect(() => {
-    if (!fitToViewport) {
-      setFitScale(1);
-      return;
-    }
-
-    const updateScale = () => {
-      const viewport = viewportRef.current;
-      const content = contentRef.current;
-      if (!viewport || !content) return;
-
-      const nextWidth = content.scrollWidth;
-      const nextHeight = content.scrollHeight;
-      const availableWidth = viewport.clientWidth;
-
-      setContentSize({ width: nextWidth, height: nextHeight });
-      setFitScale(nextWidth > 0 && availableWidth > 0 ? Math.min(1, availableWidth / nextWidth) : 1);
-    };
-
-    updateScale();
-
-    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateScale) : null;
-    if (resizeObserver) {
-      if (viewportRef.current) resizeObserver.observe(viewportRef.current);
-      if (contentRef.current) resizeObserver.observe(contentRef.current);
-    } else {
-      window.addEventListener("resize", updateScale);
-    }
-
-    return () => {
-      resizeObserver?.disconnect();
-      if (!resizeObserver) window.removeEventListener("resize", updateScale);
-    };
-  }, [fitToViewport, teams, visibleStarterSlots.length, starterConfig]);
-
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div
         ref={viewportRef}
+        {...touchHandlers}
         style={{
           width: fitToViewport ? "100%" : "fit-content",
           maxWidth: "100%",
-          overflowX: fitToViewport ? "hidden" : "visible",
+          overflow: fitToViewport ? "auto" : "visible",
+          touchAction: fitToViewport ? "pan-x pan-y" : undefined,
         }}
       >
         <div
           style={
             fitToViewport
               ? {
-                  width: contentSize.width ? contentSize.width * fitScale : "100%",
-                  height: contentSize.height ? contentSize.height * fitScale : "auto",
+                  width: contentSize.width ? contentSize.width * totalScale : "100%",
+                  height: contentSize.height ? contentSize.height * totalScale : "auto",
                 }
               : undefined
           }
@@ -644,7 +609,7 @@ export default function TeamsBoard(props: {
               flexDirection: "column",
               gap: 12,
               width: "fit-content",
-              transform: fitToViewport ? `scale(${fitScale})` : undefined,
+              transform: fitToViewport ? `scale(${totalScale})` : undefined,
               transformOrigin: fitToViewport ? "top left" : undefined,
             }}
           >
