@@ -434,14 +434,14 @@ export default function TopBanner({
             href="https://fantasydownload.com"
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="The Fantasy Footballers"
+            aria-label="FantasyDownload"
             style={{ display: "inline-flex", alignItems: "center", cursor: "pointer" }}
           >
             <img
-              src="/FantasyFootballersLogo.png"
-              alt="The Fantasy Footballers"
+              src="/fantasydownloadlogo.png"
+              alt="FantasyDownload"
               style={{
-                height: 75,
+                height: 78,
                 width: "auto",
                 maxWidth: "100%",
                 objectFit: "contain",
