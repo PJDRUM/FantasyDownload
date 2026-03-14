@@ -415,11 +415,16 @@ export default function TeamsBoard(props: {
   teamNames: string[];
   playersById: Record<string, Player>;
   posColor: (pos: Position) => string;
+  fitToViewport?: boolean;
 }) {
-  const { teams, draftStyle, draftSlots, teamNames, playersById, posColor } = props;
+  const { teams, draftStyle, draftSlots, teamNames, playersById, posColor, fitToViewport = false } = props;
   const [starterConfig, setStarterConfig] = React.useState<StarterConfig>(DEFAULT_STARTER_CONFIG);
   const [teamOverrides, setTeamOverrides] = React.useState<TeamOverridesState>({});
   const [activeDrag, setActiveDrag] = React.useState<{ teamIndex: number; player: Player } | null>(null);
+  const viewportRef = React.useRef<HTMLDivElement | null>(null);
+  const contentRef = React.useRef<HTMLDivElement | null>(null);
+  const [fitScale, setFitScale] = React.useState(1);
+  const [contentSize, setContentSize] = React.useState({ width: 0, height: 0 });
 
   const visibleStarterSlots = React.useMemo(() => buildVisibleStarterSlots(starterConfig), [starterConfig]);
   const nextPickingTeamIndex = React.useMemo(
@@ -577,61 +582,124 @@ export default function TeamsBoard(props: {
     [playersById, teamRosters, visibleStarterSlots]
   );
 
+  React.useEffect(() => {
+    if (!fitToViewport) {
+      setFitScale(1);
+      return;
+    }
+
+    const updateScale = () => {
+      const viewport = viewportRef.current;
+      const content = contentRef.current;
+      if (!viewport || !content) return;
+
+      const nextWidth = content.scrollWidth;
+      const nextHeight = content.scrollHeight;
+      const availableWidth = viewport.clientWidth;
+
+      setContentSize({ width: nextWidth, height: nextHeight });
+      setFitScale(nextWidth > 0 && availableWidth > 0 ? Math.min(1, availableWidth / nextWidth) : 1);
+    };
+
+    updateScale();
+
+    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateScale) : null;
+    if (resizeObserver) {
+      if (viewportRef.current) resizeObserver.observe(viewportRef.current);
+      if (contentRef.current) resizeObserver.observe(contentRef.current);
+    } else {
+      window.addEventListener("resize", updateScale);
+    }
+
+    return () => {
+      resizeObserver?.disconnect();
+      if (!resizeObserver) window.removeEventListener("resize", updateScale);
+    };
+  }, [fitToViewport, teams, visibleStarterSlots.length, starterConfig]);
+
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div
+        ref={viewportRef}
+        style={{
+          width: fitToViewport ? "100%" : "fit-content",
+          maxWidth: "100%",
+          overflowX: fitToViewport ? "hidden" : "visible",
+        }}
+      >
         <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 10,
-            padding: 12,
-            borderRadius: 16,
-            border: "1px solid rgba(255,255,255,0.10)",
-            outline: "1px solid rgba(0,0,0,0.18)",
-            background: "var(--panel-bg)",
-          }}
+          style={
+            fitToViewport
+              ? {
+                  width: contentSize.width ? contentSize.width * fitScale : "100%",
+                  height: contentSize.height ? contentSize.height * fitScale : "auto",
+                }
+              : undefined
+          }
         >
-          {STARTER_ORDER.map((slot) => (
-            <label
-              key={slot}
+          <div
+            ref={contentRef}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+              width: "fit-content",
+              transform: fitToViewport ? `scale(${fitScale})` : undefined,
+              transformOrigin: fitToViewport ? "top left" : undefined,
+            }}
+          >
+            <div
               style={{
                 display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "6px 10px",
-                borderRadius: 12,
-                border: "1px solid rgba(255,255,255,0.08)",
-                background: "rgba(255,255,255,0.03)",
-                fontSize: 12,
-                fontWeight: 800,
-                color: "var(--text-0)",
+                flexWrap: "wrap",
+                gap: 10,
+                padding: 12,
+                borderRadius: 16,
+                border: "1px solid rgba(255,255,255,0.10)",
+                outline: "1px solid rgba(0,0,0,0.18)",
+                background: "var(--panel-bg)",
               }}
             >
-              <span>{STARTER_LABELS[slot]}</span>
-              <select
-                value={starterConfig[slot]}
-                onChange={(e) =>
-                  setStarterConfig((prev) => ({
-                    ...prev,
-                    [slot]: Number(e.target.value),
-                  }))
-                }
-                style={selectStyle}
-                aria-label={`${STARTER_LABELS[slot]} starters`}
-              >
-                {Array.from({ length: 7 }, (_, idx) => idx).map((value) => (
-                  <option key={value} value={value}>
-                    {value}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ))}
-        </div>
+              {STARTER_ORDER.map((slot) => (
+                <label
+                  key={slot}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "6px 10px",
+                    borderRadius: 12,
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    background: "rgba(255,255,255,0.03)",
+                    fontSize: 12,
+                    fontWeight: 800,
+                    color: "var(--text-0)",
+                  }}
+                >
+                  <span>{STARTER_LABELS[slot]}</span>
+                  <select
+                    value={starterConfig[slot]}
+                    onChange={(e) =>
+                      setStarterConfig((prev) => ({
+                        ...prev,
+                        [slot]: Number(e.target.value),
+                      }))
+                    }
+                    style={selectStyle}
+                    aria-label={`${STARTER_LABELS[slot]} starters`}
+                  >
+                    {Array.from({ length: 7 }, (_, idx) => idx).map((value) => (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+            </div>
 
-        <div style={{ display: "flex", overflowX: "auto", paddingTop: 4, paddingRight: 4, paddingBottom: 4, paddingLeft: 4 }}>
-          {Array.from({ length: teams }).map((_, teamIndex) => {
+            <div style={{ display: "flex", overflowX: "auto", paddingTop: 4, paddingRight: 4, paddingBottom: 4, paddingLeft: 4 }}>
+              {Array.from({ length: teams }).map((_, teamIndex) => {
             const teamName = teamNames[teamIndex]?.trim() || `Team ${teamIndex + 1}`;
             const roster = teamRosters[teamIndex];
             const isNextPickingTeam = nextPickingTeamIndex === teamIndex;
@@ -730,7 +798,9 @@ export default function TeamsBoard(props: {
                 <TeamBenchArea teamIndex={teamIndex} bench={roster?.bench ?? []} posColor={posColor} />
               </div>
             );
-          })}
+              })}
+            </div>
+          </div>
         </div>
 
         <DragOverlay>

@@ -987,8 +987,9 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
         ) : boardTab === "Teams" ? (
           <div
             style={{
-              minWidth: tableSize?.width,
+              minWidth: mobileMode ? 0 : tableSize?.width,
               minHeight: tableSize?.height,
+              width: mobileMode ? "100%" : undefined,
             }}
           >
             <TeamsBoard
@@ -999,6 +1000,7 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
               teamNames={teamNames}
               playersById={playersById}
               posColor={posColor}
+              fitToViewport={mobileMode}
             />
           </div>
         ) : (
