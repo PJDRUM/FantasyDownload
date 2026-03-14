@@ -1135,7 +1135,7 @@ export default function App() {
         ) : isMobile ? (
           <MobileDraftCompanionView
             favoriteIds={favoriteIds}
-            boardTab={boardTab === "Cheatsheet" || boardTab === "Teams" ? "Rankings Board" : boardTab}
+            boardTab={boardTab}
             setBoardTab={setBoardTab}
             rounds={rounds}
             setRounds={setRounds}
