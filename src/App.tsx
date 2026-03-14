@@ -68,17 +68,24 @@ function shouldUseTouchLayout() {
   const compactViewport = window.matchMedia("(max-width: 1100px)").matches;
   if (compactViewport) return true;
 
-  const viewportMin = Math.min(window.innerWidth, window.innerHeight);
-  const viewportMax = Math.max(window.innerWidth, window.innerHeight);
+  const screenMin = Math.min(window.screen.width, window.screen.height);
+  const screenMax = Math.max(window.screen.width, window.screen.height);
   const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
   const standaloneDisplay = window.matchMedia("(display-mode: standalone)").matches;
   const maxTouchPoints =
     typeof navigator !== "undefined" && typeof navigator.maxTouchPoints === "number" ? navigator.maxTouchPoints : 0;
+  const legacyStandalone =
+    typeof navigator !== "undefined" && "standalone" in navigator
+      ? Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
+      : false;
   const isiPadLike =
     typeof navigator !== "undefined" &&
     (/iPad/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && maxTouchPoints > 1));
+  const touchCapable = maxTouchPoints > 1;
 
-  return (coarsePointer || standaloneDisplay || isiPadLike) && viewportMin <= 900 && viewportMax <= 1400;
+  if (isiPadLike && screenMin <= 1200 && screenMax <= 1600) return true;
+
+  return (coarsePointer || standaloneDisplay || legacyStandalone) && touchCapable && screenMin <= 1200 && screenMax <= 1600;
 }
 
 export default function App() {
@@ -104,11 +111,13 @@ export default function App() {
     compactMedia.addEventListener("change", update);
     standaloneMedia.addEventListener("change", update);
     pointerMedia.addEventListener("change", update);
+    window.addEventListener("orientationchange", update);
     window.addEventListener("resize", update);
     return () => {
       compactMedia.removeEventListener("change", update);
       standaloneMedia.removeEventListener("change", update);
       pointerMedia.removeEventListener("change", update);
+      window.removeEventListener("orientationchange", update);
       window.removeEventListener("resize", update);
     };
   }, []);
