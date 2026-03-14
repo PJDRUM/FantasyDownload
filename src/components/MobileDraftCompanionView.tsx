@@ -74,6 +74,9 @@ function MobileRankingRow(props: {
     <div
       ref={setNodeRef}
       style={{
+        boxSizing: "border-box",
+        width: "100%",
+        minWidth: 0,
         transform: CSS.Transform.toString(verticalTransform),
         transition,
         opacity: isDragging ? 0.88 : 1,
@@ -84,6 +87,7 @@ function MobileRankingRow(props: {
         padding: "6px 10px",
         borderBottom: "1px solid rgba(255,255,255,0.08)",
         background: rowBg,
+        overflow: "hidden",
       }}
     >
       <button
@@ -562,7 +566,18 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
             </div>
           </div>
 
-          <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+          <div
+            style={{
+              flex: 1,
+              minHeight: 0,
+              minWidth: 0,
+              width: "100%",
+              maxWidth: "100%",
+              overflowY: "auto",
+              overflowX: "hidden",
+              WebkitOverflowScrolling: "touch",
+            }}
+          >
             <DndContext sensors={mobileSensors} onDragEnd={onListDragEnd}>
               <SortableContext items={filteredRankingIds} strategy={verticalListSortingStrategy}>
                 {filteredRankingIds.map((id, index) => (
