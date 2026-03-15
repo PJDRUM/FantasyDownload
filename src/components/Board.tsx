@@ -984,11 +984,8 @@ const [plannerAssignQuery, setPlannerAssignQuery] = React.useState<string>("");
 
     const update = () => {
       const hasOverflow = scroller.scrollWidth > scroller.clientWidth + 2;
-      const contentWidth = tableSizeRef.current
-        ? Math.ceil(tableSizeRef.current.getBoundingClientRect().width + 4)
-        : scroller.scrollWidth;
       setShowBottomScrollbar(hasOverflow);
-      setBottomScrollbarWidth(Math.max(scroller.scrollWidth, contentWidth));
+      setBottomScrollbarWidth(scroller.scrollWidth);
     };
 
     update();
