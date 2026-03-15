@@ -473,7 +473,8 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
             border: "1px solid rgba(255,255,255,0.12)",
             background: "rgba(38,38,38,0.92)",
             boxShadow: "0 14px 28px rgba(0,0,0,0.32)",
-            display: "flex",
+            display: "grid",
+            gridTemplateColumns: isTablet ? undefined : "repeat(4, minmax(0, 1fr))",
             gap: 2,
             alignItems: "center",
             padding: isTablet ? 3 : 2,
@@ -501,15 +502,8 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                 lineHeight: isTablet ? "14px" : 1.05,
                 cursor: "pointer",
                 whiteSpace: isTablet ? "nowrap" : "normal",
-                flex: isTablet
-                  ? "0 0 auto"
-                  : tab === "Rankings Board"
-                    ? "1.25 1 0"
-                    : tab === "Cheatsheet"
-                      ? "1.28 1 0"
-                      : tab === "Teams"
-                        ? "0.8 1 0"
-                      : "1 1 0",
+                flex: isTablet ? "0 0 auto" : undefined,
+                width: isTablet ? undefined : "100%",
                 minWidth: 0,
                 minHeight: isTablet ? undefined : 28,
                 textAlign: "center",
@@ -835,9 +829,10 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
             />
             <div
               style={{
-                display: "flex",
+                display: isTablet ? "flex" : "grid",
+                gridTemplateColumns: isTablet ? undefined : "repeat(4, minmax(0, 1fr))",
                 gap: isTablet ? 8 : 5,
-                overflowX: "auto",
+                overflowX: isTablet ? "auto" : "hidden",
                 paddingBottom: 2,
                 marginBottom: isTablet ? 10 : 8,
                 scrollbarWidth: "none",
@@ -853,7 +848,9 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                     onClick={() => setRankingsListKey(key)}
                     onPointerDown={(event) => event.stopPropagation()}
                     style={{
-                      flex: "0 0 auto",
+                      flex: isTablet ? "0 0 auto" : undefined,
+                      width: isTablet ? undefined : "100%",
+                      minWidth: 0,
                       padding: isTablet ? "8px 13px" : "6px 10px",
                       borderRadius: 999,
                       border: active ? "1px solid rgba(255,255,255,0.2)" : "1px solid rgba(255,255,255,0.1)",
@@ -862,7 +859,7 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                       fontSize: isTablet ? 12 : 10,
                       fontWeight: 800,
                       cursor: "pointer",
-                      whiteSpace: "nowrap",
+                      whiteSpace: isTablet ? "nowrap" : "normal",
                     }}
                   >
                     {label}
@@ -875,9 +872,10 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                 role="group"
                 aria-label="Dynasty values format"
                 style={{
-                  display: "flex",
+                  display: isTablet ? "flex" : "grid",
+                  gridTemplateColumns: isTablet ? undefined : "repeat(2, minmax(0, 1fr))",
                   gap: isTablet ? 8 : 6,
-                  overflowX: "auto",
+                  overflowX: isTablet ? "auto" : "hidden",
                   marginBottom: isTablet ? 10 : 8,
                   paddingBottom: 2,
                   scrollbarWidth: "none",
@@ -896,7 +894,9 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                       onClick={() => onChangeKtcValueMode(id)}
                       onPointerDown={(event) => event.stopPropagation()}
                       style={{
-                        flex: "0 0 auto",
+                        flex: isTablet ? "0 0 auto" : undefined,
+                        width: isTablet ? undefined : "100%",
+                        minWidth: 0,
                         padding: isTablet ? "8px 13px" : "6px 10px",
                         borderRadius: 999,
                         border: active ? "1px solid rgba(255,255,255,0.2)" : "1px solid rgba(255,255,255,0.1)",
@@ -905,7 +905,7 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                         fontSize: isTablet ? 12 : 10,
                         fontWeight: 800,
                         cursor: "pointer",
-                        whiteSpace: "nowrap",
+                        whiteSpace: isTablet ? "nowrap" : "normal",
                       }}
                     >
                       {label}
@@ -918,9 +918,10 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                 role="group"
                 aria-label={rankingsListKey === "ADP" ? "ADP scoring format" : "Consensus scoring format"}
                 style={{
-                  display: "flex",
+                  display: isTablet ? "flex" : "grid",
+                  gridTemplateColumns: isTablet ? undefined : "repeat(3, minmax(0, 1fr))",
                   gap: isTablet ? 8 : 6,
-                  overflowX: "auto",
+                  overflowX: isTablet ? "auto" : "hidden",
                   marginBottom: isTablet ? 10 : 8,
                   paddingBottom: 2,
                   scrollbarWidth: "none",
@@ -943,7 +944,9 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                       }}
                       onPointerDown={(event) => event.stopPropagation()}
                       style={{
-                        flex: "0 0 auto",
+                        flex: isTablet ? "0 0 auto" : undefined,
+                        width: isTablet ? undefined : "100%",
+                        minWidth: 0,
                         padding: isTablet ? "8px 13px" : "6px 10px",
                         borderRadius: 999,
                         border: active ? "1px solid rgba(255,255,255,0.2)" : "1px solid rgba(255,255,255,0.1)",
@@ -952,7 +955,7 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                         fontSize: isTablet ? 12 : 10,
                         fontWeight: 800,
                         cursor: "pointer",
-                        whiteSpace: "nowrap",
+                        whiteSpace: isTablet ? "nowrap" : "normal",
                       }}
                     >
                       {label}
@@ -1005,13 +1008,11 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
             </div>
             <div
               style={{
-                display: "flex",
+                display: "grid",
+                gridTemplateColumns: `repeat(${availablePositionTabs.length}, minmax(0, 1fr))`,
                 gap: isTablet ? 8 : 5,
-                overflowX: "auto",
                 marginTop: isTablet ? 10 : 8,
                 paddingBottom: 2,
-                scrollbarWidth: "none",
-                msOverflowStyle: "none",
               }}
             >
               {availablePositionTabs.map((tab) => {
@@ -1022,7 +1023,8 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                     type="button"
                     onClick={() => setActivePosition(tab)}
                     style={{
-                      flex: "0 0 auto",
+                      width: "100%",
+                      minWidth: 0,
                       padding: isTablet ? "8px 13px" : "6px 10px",
                       borderRadius: 999,
                       border: active ? "1px solid rgba(255,255,255,0.2)" : "1px solid rgba(255,255,255,0.1)",
@@ -1031,7 +1033,7 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                       fontSize: isTablet ? 12 : 10,
                       fontWeight: 800,
                       cursor: "pointer",
-                      whiteSpace: "nowrap",
+                      whiteSpace: isTablet ? "nowrap" : "normal",
                     }}
                   >
                     {tab === "ALL" ? "All" : tab}
