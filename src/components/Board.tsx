@@ -1,6 +1,6 @@
 import React from "react";
 import type { Position, Player } from "../models/Player";
-import { DndContext, DragEndEvent } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, DragOverlay, DragOverEvent, DragStartEvent, useDroppable } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, rectSortingStrategy } from "@dnd-kit/sortable";
 import { BoardCell, CellContent } from "./BoardCell";
 import Cheatsheet from "./Cheatsheet";
@@ -10,7 +10,203 @@ import type { TiersByPos } from "../utils/xlsxRankings";
 import { formatTeamAbbreviation } from "../utils/teamAbbreviation";
 
 export type DraftStyle = "Snake Draft" | "Regular Draft" | "Third Round Reversal";
-export type BoardTab = "Rankings Board" | "Draft Board" | "Cheatsheet" | "Teams";
+export type BoardTab = "Rankings Board" | "Draft Board" | "Draft Planner" | "Cheatsheet" | "Teams";
+
+function numberToWords(value: number) {
+  const underTwenty = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty"];
+  if (value < 20) return underTwenty[value] ?? String(value);
+  const tensDigit = Math.floor(value / 10);
+  const onesDigit = value % 10;
+  return `${tens[tensDigit] ?? String(value)}${onesDigit ? ` ${underTwenty[onesDigit]}` : ""}`;
+}
+
+function getRankedRoundForPlayer(playerId: string, rankingIds: string[], teams: number, rounds: number) {
+  const index = rankingIds.indexOf(playerId);
+  if (index < 0 || teams <= 0) return rounds;
+  return Math.min(rounds, Math.floor(index / teams) + 1);
+}
+
+function PlannerFavoriteCard(props: {
+  player: Player;
+  posColor: (pos: Position) => string;
+  sortableEnabled?: boolean;
+  hidden?: boolean;
+  onToggleFavorite?: (id: string) => void;
+}) {
+  const { player, posColor, sortableEnabled = true, hidden = false, onToggleFavorite } = props;
+
+  return (
+    <div style={{ position: "relative", ...(hidden ? { opacity: 0, pointerEvents: "none" } : undefined) }}>
+      <BoardCell
+        id={`draft-planner:${player.id}`}
+        drafted={false}
+        dimWhenDrafted={false}
+        showDraftedBanner={false}
+        onToggleDrafted={() => {}}
+        bg={posColor(player.position)}
+        sortable={sortableEnabled}
+        clickable={false}
+      >
+        <CellContent
+          label={""}
+          name={player.name}
+          position={player.position}
+          team={player.team}
+          imageUrl={player.imageUrl}
+          showDash
+          showImage={false}
+        forceFullName
+      />
+      </BoardCell>
+      {onToggleFavorite ? (
+        <button
+          type="button"
+          aria-label="Unfavorite player"
+          title="Unfavorite"
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+          onMouseDown={(event) => {
+            event.stopPropagation();
+          }}
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleFavorite(player.id);
+          }}
+          style={{
+            position: "absolute",
+            top: 8,
+            right: 10,
+            border: "none",
+            background: "transparent",
+            color: "#fbbf24",
+            fontSize: 18,
+            lineHeight: 1,
+            cursor: "pointer",
+            zIndex: 3,
+            padding: 0,
+            textShadow: "0 1px 2px rgba(0,0,0,0.35)",
+          }}
+        >
+          ★
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function PlannerRoundLane(props: {
+  round: number;
+  playerIds: string[];
+  playersById: Record<string, Player>;
+  posColor: (pos: Position) => string;
+  activePlannerPlayerId: string | null;
+  isCurrentRound: boolean;
+  onToggleFavorite?: (id: string) => void;
+  onOpenAddPlayer: (round: number) => void;
+}) {
+  const { round, playerIds, playersById, posColor, activePlannerPlayerId, isCurrentRound, onToggleFavorite, onOpenAddPlayer } = props;
+  const { setNodeRef, isOver } = useDroppable({ id: `draft-planner-round:${round}` });
+  const title = `Round ${numberToWords(round)}`;
+
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "140px minmax(0, 1fr)",
+        gap: 16,
+        alignItems: "start",
+        padding: "8px 6px 8px 8px",
+        borderTop: round === 1 ? "none" : "1px solid rgba(255,255,255,0.08)",
+        background: isCurrentRound ? "rgba(255, 215, 0, 0.08)" : undefined,
+        boxShadow: isCurrentRound ? "inset 0 0 0 1px rgba(255, 215, 0, 0.18)" : undefined,
+        borderRadius: 14,
+      }}
+    >
+      <div
+        style={{
+          padding: "10px 12px",
+          borderRadius: 12,
+          border: isCurrentRound ? "1px solid rgba(255,215,0,0.55)" : "1px solid rgba(255,255,255,0.1)",
+          background: isCurrentRound ? "rgba(255, 215, 0, 0.18)" : "rgba(255,255,255,0.05)",
+          color: isCurrentRound ? "rgba(255, 235, 140, 0.98)" : "var(--text-0)",
+          fontWeight: 900,
+          fontSize: 16,
+        }}
+      >
+        {title}
+      </div>
+
+      <div
+        style={{
+          minHeight: 92,
+          padding: "4px",
+          borderRadius: 16,
+          display: "flex",
+          flexWrap: "nowrap",
+          gap: 8,
+          alignItems: "flex-start",
+          overflowX: "auto",
+          overflowY: "hidden",
+          scrollbarWidth: "thin",
+        }}
+      >
+        <SortableContext
+          items={playerIds.map((playerId) => `draft-planner:${playerId}`)}
+          strategy={horizontalListSortingStrategy}
+        >
+          {playerIds.map((playerId) => {
+            const player = playersById[playerId];
+            if (!player) return null;
+            return (
+              <PlannerFavoriteCard
+                key={playerId}
+                player={player}
+                posColor={posColor}
+                hidden={playerId === activePlannerPlayerId}
+                onToggleFavorite={onToggleFavorite}
+              />
+            );
+          })}
+        </SortableContext>
+        <button
+          type="button"
+          ref={setNodeRef}
+          onClick={() => onOpenAddPlayer(round)}
+          style={{
+            width: 140,
+            minWidth: 140,
+            height: 92,
+            borderRadius: 16,
+            border: "1px dashed rgba(255,255,255,0.18)",
+            background: isOver ? "rgba(255,255,255,0.06)" : "transparent",
+            boxShadow: isOver ? "0 0 0 2px rgba(255,255,255,0.18)" : undefined,
+            color: "rgba(255,255,255,0.9)",
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 32,
+            fontWeight: 300,
+            lineHeight: 1,
+            padding: 0,
+          }}
+        >
+          +
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function arraysEqual(left: string[], right: string[]) {
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false;
+  }
+  return true;
+}
 
 function normalizeDraftAssignSearch(value: string) {
   return value
@@ -38,8 +234,9 @@ function MobileRankingsBoardCard(props: {
   bg: string;
   marginRight?: number;
   tabletMode?: boolean;
+  dimDrafted?: boolean;
 }) {
-  const { pickLabel, directionArrow, player, favorite = false, drafted = false, bg, marginRight = 3, tabletMode = false } = props;
+  const { pickLabel, directionArrow, player, favorite = false, drafted = false, bg, marginRight = 3, tabletMode = false, dimDrafted = true } = props;
   const displayTeam = React.useMemo(() => {
     return formatTeamAbbreviation(player?.team, "FA");
   }, [player?.team]);
@@ -69,8 +266,8 @@ function MobileRankingsBoardCard(props: {
         padding: tabletMode ? 5 : 4,
         position: "relative",
         overflow: "hidden",
-        opacity: drafted ? 0.55 : 1,
-        filter: drafted ? "grayscale(18%)" : undefined,
+        opacity: drafted && dimDrafted ? 0.55 : 1,
+        filter: drafted && dimDrafted ? "grayscale(18%)" : undefined,
       }}
     >
       <div
@@ -292,6 +489,7 @@ export default function Board(props: {
 
   draftedIds: Set<string>;
   onToggleDrafted: (id: string) => void;
+  onToggleFavorite?: (id: string) => void;
   clearAllDrafted: () => void;
 
   teamNames: string[];
@@ -310,6 +508,9 @@ export default function Board(props: {
   tabletMode?: boolean;
   allowDraftBoardReorder?: boolean;
   showTabSwitcher?: boolean;
+  onOpenDraftSync?: () => void;
+  onRefreshDraftSync?: () => void;
+  isRefreshingDraftSync?: boolean;
 }) {
   const {
     favoriteIds,
@@ -332,6 +533,7 @@ export default function Board(props: {
     onUpdateTiersByPos,
     draftedIds,
     onToggleDrafted,
+    onToggleFavorite,
     clearAllDrafted,
     teamNames,
     setTeamNames,
@@ -346,6 +548,9 @@ export default function Board(props: {
     tabletMode = false,
     allowDraftBoardReorder = true,
     showTabSwitcher = true,
+    onOpenDraftSync,
+    onRefreshDraftSync,
+    isRefreshingDraftSync = false,
   } = props;
 
   // Cheatsheet should be driven purely by the Rankings list (order + tiers) so it looks identical
@@ -360,6 +565,8 @@ export default function Board(props: {
 
   const [newPlayerName, setNewPlayerName] = React.useState<string>("");
   const [newPlayerPos, setNewPlayerPos] = React.useState<Position>("RB");
+  const [desktopSettingsOpen, setDesktopSettingsOpen] = React.useState(false);
+  const desktopSettingsRef = React.useRef<HTMLDivElement | null>(null);
 
 
 // Draft-board: click an empty cell -> menu -> assign a player to that pick.
@@ -367,8 +574,11 @@ const [draftAssignMenu, setDraftAssignMenu] = React.useState<null | { slotIndex:
 const [draftRemoveMenu, setDraftRemoveMenu] = React.useState<null | { slotIndex: number; x: number; y: number; label: string; playerId: string; playerName: string }>(null);
 const [draftAssignModal, setDraftAssignModal] = React.useState<null | { slotIndex: number; label: string }>(null);
 const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
+const [plannerAssignModal, setPlannerAssignModal] = React.useState<null | { round: number; label: string }>(null);
+const [plannerAssignQuery, setPlannerAssignQuery] = React.useState<string>("");
 
   const draftAssignInputRef = React.useRef<HTMLInputElement | null>(null);
+  const plannerAssignInputRef = React.useRef<HTMLInputElement | null>(null);
   React.useEffect(() => {
     if (!draftAssignModal) return;
     const raf = window.requestAnimationFrame(() => {
@@ -378,12 +588,59 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
     return () => window.cancelAnimationFrame(raf);
   }, [draftAssignModal]);
 
+  React.useEffect(() => {
+    if (!plannerAssignModal) return;
+    const raf = window.requestAnimationFrame(() => {
+      plannerAssignInputRef.current?.focus();
+      plannerAssignInputRef.current?.select();
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [plannerAssignModal]);
+
 
   const draftAssignCandidates = React.useMemo<string[]>(() => {
     if (!draftAssignModal) return [];
     const q = normalizeDraftAssignSearch(draftAssignQuery);
 
-    const ids = Object.keys(playersById).filter((id) => !draftedIds.has(id));
+    const undraftedIds = Object.keys(playersById).filter((id) => !draftedIds.has(id));
+
+    if (!q) {
+      const rankedUndrafted = rankingIds.filter((id) => !draftedIds.has(id) && playersById[id]);
+      const rankedSet = new Set(rankedUndrafted);
+      const extras = undraftedIds
+        .filter((id) => !rankedSet.has(id))
+        .sort((a, b) => {
+          const pa = playersById[a];
+          const pb = playersById[b];
+          return (pa?.name ?? "").localeCompare(pb?.name ?? "");
+        });
+      return [...rankedUndrafted, ...extras];
+    }
+
+    const filtered = undraftedIds.filter((id) => {
+      const p = playersById[id];
+      if (!p) return false;
+      const name = normalizeDraftAssignSearch(p.name ?? "");
+      const pos = normalizeDraftAssignSearch((p as any).pos ?? "");
+      const team = normalizeDraftAssignSearch((p as any).team ?? "");
+      return name.includes(q) || pos.includes(q) || team.includes(q);
+    });
+
+    // Stable-ish alphabetical ordering for the modal list.
+    filtered.sort((a, b) => {
+      const pa = playersById[a];
+      const pb = playersById[b];
+      return (pa?.name ?? "").localeCompare(pb?.name ?? "");
+    });
+
+    return filtered;
+  }, [draftAssignModal, draftAssignQuery, draftedIds, playersById, rankingIds]);
+
+  const plannerAssignCandidates = React.useMemo<string[]>(() => {
+    if (!plannerAssignModal) return [];
+    const q = normalizeDraftAssignSearch(plannerAssignQuery);
+
+    const ids = rankingIds.filter((id) => !favoriteIds.has(id));
 
     const filtered = !q
       ? ids
@@ -396,15 +653,8 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
           return name.includes(q) || pos.includes(q) || team.includes(q);
         });
 
-    // Stable-ish alphabetical ordering for the modal list.
-    filtered.sort((a, b) => {
-      const pa = playersById[a];
-      const pb = playersById[b];
-      return (pa?.name ?? "").localeCompare(pb?.name ?? "");
-    });
-
     return filtered;
-  }, [draftAssignModal, draftAssignQuery, playersById, draftedIds]);
+  }, [favoriteIds, plannerAssignModal, plannerAssignQuery, playersById, rankingIds]);
 
 
 
@@ -416,9 +666,32 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
     setNewPlayerName("");
   }, [newPlayerName, newPlayerPos, onAddPlayer]);
 
+  React.useEffect(() => {
+    if (!desktopSettingsOpen || mobileMode) return undefined;
+
+    const onMouseDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (desktopSettingsRef.current?.contains(target)) return;
+      setDesktopSettingsOpen(false);
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDesktopSettingsOpen(false);
+    };
+
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [desktopSettingsOpen, mobileMode]);
+
   const isCheat = boardTab === "Cheatsheet";
   const isTeams = boardTab === "Teams";
   const isDraft = boardTab === "Draft Board";
+  const isPlanner = boardTab === "Draft Planner";
   const isRank = boardTab === "Rankings Board";
   const compactMobileMode = mobileMode && !tabletMode;
   const boardCellWidth = mobileMode ? (tabletMode ? 91 : 72) : 140;
@@ -428,11 +701,196 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
   const boardCellPadding = mobileMode ? (tabletMode ? 5 : 4) : 8;
   const boardCellMarginRight = mobileMode ? (tabletMode ? 2 : 1) : 4;
   const showBoardCellImages = tabletMode || !mobileMode;
-  const visibleTabs = availableTabs ?? ["Rankings Board", "Draft Board", "Cheatsheet", "Teams"];
+  const visibleTabs = availableTabs ?? ["Rankings Board", "Draft Board", "Draft Planner", "Cheatsheet", "Teams"];
   const showRankTab = visibleTabs.includes("Rankings Board");
   const showDraftTab = visibleTabs.includes("Draft Board");
+  const showPlannerTab = visibleTabs.includes("Draft Planner");
   const showCheatsheetTab = visibleTabs.includes("Cheatsheet");
   const showTeamsTab = visibleTabs.includes("Teams");
+
+  const [plannerRoundById, setPlannerRoundById] = React.useState<Record<string, number>>({});
+  const [plannerOrderedIds, setPlannerOrderedIds] = React.useState<string[]>([]);
+  const [activePlannerPlayerId, setActivePlannerPlayerId] = React.useState<string | null>(null);
+  const plannerRoundByIdRef = React.useRef<Record<string, number>>({});
+  const plannerOrderedIdsRef = React.useRef<string[]>([]);
+
+  React.useEffect(() => {
+    plannerRoundByIdRef.current = plannerRoundById;
+  }, [plannerRoundById]);
+
+  React.useEffect(() => {
+    plannerOrderedIdsRef.current = plannerOrderedIds;
+  }, [plannerOrderedIds]);
+
+  React.useEffect(() => {
+    if (mobileMode) return;
+
+    setPlannerRoundById((prev) => {
+      const next: Record<string, number> = {};
+      let changed = false;
+
+      favoriteIds.forEach((playerId) => {
+        const currentRound = prev[playerId];
+        const defaultRound = getRankedRoundForPlayer(playerId, rankingIds, teams, rounds);
+        const round = currentRound ? Math.min(rounds, Math.max(1, currentRound)) : defaultRound;
+        next[playerId] = round;
+        if (prev[playerId] !== round) changed = true;
+      });
+
+      if (Object.keys(prev).length !== Object.keys(next).length) changed = true;
+      return changed ? next : prev;
+    });
+  }, [favoriteIds, mobileMode, rankingIds, rounds, teams]);
+
+  React.useEffect(() => {
+    if (mobileMode) return;
+
+    setPlannerOrderedIds((prev) => {
+      const next = rankingIds.filter((playerId) => favoriteIds.has(playerId));
+      if (
+        prev.length === next.length &&
+        prev.every((playerId, index) => playerId === next[index])
+      ) {
+        return prev;
+      }
+
+      const remaining = prev.filter((playerId) => favoriteIds.has(playerId));
+      const seen = new Set(remaining);
+      const additions = next.filter((playerId) => !seen.has(playerId));
+      return [...remaining, ...additions];
+    });
+  }, [favoriteIds, mobileMode, rankingIds]);
+
+  const plannerRows = React.useMemo(() => {
+    const rows = Array.from({ length: rounds }, () => [] as string[]);
+    const favoriteInPlannerOrder = plannerOrderedIds.filter((playerId) => favoriteIds.has(playerId));
+
+    favoriteInPlannerOrder.forEach((playerId) => {
+      const round = plannerRoundById[playerId] ?? getRankedRoundForPlayer(playerId, rankingIds, teams, rounds);
+      const rowIndex = Math.min(rounds, Math.max(1, round)) - 1;
+      rows[rowIndex]?.push(playerId);
+    });
+
+    return rows;
+  }, [favoriteIds, plannerOrderedIds, plannerRoundById, rankingIds, rounds, teams]);
+
+  const currentDraftRound = React.useMemo(() => {
+    const hasAnyDraftedPick = draftSlots.some((playerId) => playerId !== null);
+    if (!hasAnyDraftedPick) return null;
+    const nextPickIndex = draftSlots.findIndex((playerId) => playerId === null);
+    if (nextPickIndex === -1 || teams <= 0) return null;
+    return Math.floor(nextPickIndex / teams) + 1;
+  }, [draftSlots, teams]);
+
+  const movePlannerPlayer = React.useCallback((playerId: string, overId: string) => {
+    if (!playerId || !overId) return;
+
+    const getRoundForId = (id: string) => plannerRoundByIdRef.current[id] ?? getRankedRoundForPlayer(id, rankingIds, teams, rounds);
+
+    const cardMatch = /^draft-planner:(.+)$/.exec(overId);
+    if (cardMatch) {
+      const targetId = cardMatch[1];
+      if (!targetId || targetId === playerId) return;
+      const nextRound = getRoundForId(targetId);
+
+      setPlannerRoundById((prev) => {
+        const next = prev[playerId] === nextRound ? prev : { ...prev, [playerId]: nextRound };
+        plannerRoundByIdRef.current = next;
+        return next;
+      });
+
+      setPlannerOrderedIds((prev) => {
+        const withoutActive = prev.filter((id) => id !== playerId);
+        const targetIndex = withoutActive.indexOf(targetId);
+        if (targetIndex < 0) {
+          plannerOrderedIdsRef.current = withoutActive;
+          return withoutActive;
+        }
+        const next = [...withoutActive];
+        next.splice(targetIndex, 0, playerId);
+        if (arraysEqual(prev, next)) return prev;
+        plannerOrderedIdsRef.current = next;
+        return next;
+      });
+      return;
+    }
+
+    const roundMatch = /^draft-planner-round:(\d+)$/.exec(overId);
+    if (!roundMatch) return;
+
+    const nextRound = Number(roundMatch[1]);
+    if (!Number.isFinite(nextRound)) return;
+
+    setPlannerRoundById((prev) => {
+      const next = prev[playerId] === nextRound ? prev : { ...prev, [playerId]: nextRound };
+      plannerRoundByIdRef.current = next;
+      return next;
+    });
+
+    setPlannerOrderedIds((prev) => {
+      const withoutActive = prev.filter((id) => id !== playerId);
+      const insertAfterIndex = withoutActive.reduce((lastIndex, id, index) => {
+        return getRoundForId(id) === nextRound ? index : lastIndex;
+      }, -1);
+      const next = [...withoutActive];
+      next.splice(insertAfterIndex + 1, 0, playerId);
+      if (arraysEqual(prev, next)) return prev;
+      plannerOrderedIdsRef.current = next;
+      return next;
+    });
+  }, [rankingIds, rounds, teams]);
+
+  const onPlannerDragStart = React.useCallback((event: DragStartEvent) => {
+    const activeId = String(event.active.id);
+    if (!activeId.startsWith("draft-planner:")) return;
+    setActivePlannerPlayerId(activeId.replace("draft-planner:", ""));
+  }, []);
+
+  const onPlannerDragOver = React.useCallback((event: DragOverEvent) => {
+    const activeId = String(event.active.id);
+    const overId = event.over ? String(event.over.id) : "";
+    if (!activeId.startsWith("draft-planner:") || !overId) return;
+    movePlannerPlayer(activeId.replace("draft-planner:", ""), overId);
+  }, [movePlannerPlayer]);
+
+  const onPlannerDragEnd = React.useCallback((event: DragEndEvent) => {
+    const activeId = String(event.active.id);
+    const overId = event.over ? String(event.over.id) : "";
+    if (activeId.startsWith("draft-planner:") && overId) {
+      movePlannerPlayer(activeId.replace("draft-planner:", ""), overId);
+    }
+    setActivePlannerPlayerId(null);
+  }, [movePlannerPlayer]);
+
+  const openPlannerAssignModal = React.useCallback((round: number) => {
+    setPlannerAssignModal({ round, label: `Round ${numberToWords(round)}` });
+    setPlannerAssignQuery("");
+  }, []);
+
+  const addPlayerToPlannerRound = React.useCallback((playerId: string, round: number) => {
+    if (!playerId) return;
+    if (onToggleFavorite && !favoriteIds.has(playerId)) {
+      onToggleFavorite(playerId);
+    }
+
+    setPlannerRoundById((prev) => {
+      const next = { ...prev, [playerId]: round };
+      plannerRoundByIdRef.current = next;
+      return next;
+    });
+
+    setPlannerOrderedIds((prev) => {
+      const withoutPlayer = prev.filter((id) => id !== playerId);
+      const insertAfterIndex = withoutPlayer.reduce((lastIndex, id, index) => {
+        const idRound = plannerRoundByIdRef.current[id] ?? getRankedRoundForPlayer(id, rankingIds, teams, rounds);
+        return idRound === round ? index : lastIndex;
+      }, -1);
+      const next = [...withoutPlayer];
+      next.splice(insertAfterIndex + 1, 0, playerId);
+      plannerOrderedIdsRef.current = next;
+      return next;
+    });
+  }, [favoriteIds, onToggleFavorite, rankingIds, rounds, teams]);
 
   // Measure the non-cheatsheet board (Rankings/Draft) so Cheatsheet can reserve the same space.
   const tableSizeRef = React.useRef<HTMLDivElement | null>(null);
@@ -668,7 +1126,35 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                     Draft Board
                   </button>
                 )}
-              </div>
+
+                {showPlannerTab && !mobileMode && (
+                  <button
+                    className="tabBtn"
+                    onClick={() => setBoardTab("Draft Planner")}
+                    style={{
+                      ...pillBase,
+                      ...(isPlanner ? pillActive : {}),
+                    }}
+                    title="Draft Planner"
+                  >
+                    Draft Planner
+                  </button>
+                )}
+
+                {showTeamsTab && (
+                  <button
+                    className="tabBtn"
+                    onClick={() => setBoardTab("Teams")}
+                    style={{
+                      ...pillBase,
+                      ...(isTeams ? pillActive : {}),
+                    }}
+                    title="Rosters"
+                  >
+                    Rosters
+                  </button>
+                )}
+                </div>
 
               {showCheatsheetTab && (
                 <div
@@ -696,231 +1182,292 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                   </button>
                 </div>
               )}
+            </div>
 
-              {showTeamsTab && (
-                <div
+            {!mobileMode && (
+              <div ref={desktopSettingsRef} style={{ position: "relative", display: "flex", alignItems: "center", gap: 10 }}>
+                {onRefreshDraftSync ? (
+                  <button
+                    type="button"
+                    onClick={onRefreshDraftSync}
+                    aria-label="Refresh synced league"
+                    title="Refresh synced league"
+                    disabled={isRefreshingDraftSync}
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: 0,
+                      border: "none",
+                      background: "transparent",
+                      color: "var(--text-0)",
+                      cursor: isRefreshingDraftSync ? "progress" : "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: 0,
+                      opacity: isRefreshingDraftSync ? 0.7 : 0.92,
+                    }}
+                  >
+                    <svg
+                      width="28"
+                      height="28"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      aria-hidden="true"
+                      style={{
+                        transform: isRefreshingDraftSync ? "rotate(180deg)" : "none",
+                        transition: isRefreshingDraftSync ? "transform 900ms linear" : "transform 180ms ease",
+                      }}
+                    >
+                      <path
+                        d="M20 5v5h-5"
+                        stroke="currentColor"
+                        strokeWidth="1.9"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M20 10a8 8 0 1 0 2 5.3"
+                        stroke="currentColor"
+                        strokeWidth="1.9"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                ) : null}
+
+                <button
+                  type="button"
+                  onClick={() => setDesktopSettingsOpen((open) => !open)}
+                  aria-label="Open draft settings"
                   style={{
-                    boxSizing: "border-box",
-                    display: "flex",
-                    gap: 4,
+                    width: 48,
+                    height: 48,
+                    borderRadius: 0,
+                    border: "none",
+                    background: "transparent",
+                    color: "var(--text-0)",
+                    cursor: "pointer",
+                    display: "inline-flex",
                     alignItems: "center",
-                    padding: 4,
-                    borderRadius: 999,
-                    border: "1px solid var(--border-0)",
-                    background: "var(--panel-bg)",
+                    justifyContent: "center",
+                    boxShadow: "none",
+                    padding: 0,
+                    opacity: desktopSettingsOpen ? 1 : 0.92,
                   }}
                 >
-                  <button
-                    className="tabBtn"
-                    onClick={() => setBoardTab("Teams")}
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path
+                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.757.426 1.757 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.757-2.924 1.757-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.757-.426-1.757-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065Z"
+                      stroke="currentColor"
+                      strokeWidth="1.75"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <circle cx="12" cy="12" r="3.25" stroke="currentColor" strokeWidth="1.75" />
+                  </svg>
+                </button>
+
+                {desktopSettingsOpen && (
+                  <div
                     style={{
-                      ...pillBase,
-                      ...(isTeams ? pillActive : {}),
+                      position: "absolute",
+                      right: 0,
+                      top: 48,
+                      width: 360,
+                      maxWidth: "min(360px, calc(100vw - 32px))",
+                      padding: 14,
+                      borderRadius: 18,
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      background: "rgba(14,18,28,0.98)",
+                      boxShadow: "0 24px 54px rgba(0,0,0,0.42)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 12,
+                      zIndex: 120,
                     }}
-                    title="Teams"
                   >
-                    Teams
-                  </button>
-                </div>
-              )}
-            </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,0.68)", letterSpacing: 0.4, textTransform: "uppercase" }}>
+                        Draft Settings
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setDesktopSettingsOpen(false)}
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 999,
+                          border: "1px solid rgba(255,255,255,0.12)",
+                          background: "rgba(255,255,255,0.06)",
+                          color: "var(--text-0)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
 
-            {!mobileMode && <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto auto", gap: 8, alignItems: "center" }}>
+                      <input
+                        value={newPlayerName}
+                        onChange={(e) => setNewPlayerName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") submitAddPlayer();
+                        }}
+                        placeholder="Add player name"
+                        aria-label="Add player name"
+                        style={{
+                          borderRadius: 10,
+                          border: "1px solid rgba(255,255,255,0.12)",
+                          background: "rgba(255,255,255,0.06)",
+                          color: "var(--text-0)",
+                          padding: "8px 10px",
+                          outline: "none",
+                          minWidth: 0,
+                        }}
+                      />
+                      <select
+                        value={newPlayerPos}
+                        onChange={(e) => setNewPlayerPos(e.target.value as Position)}
+                        aria-label="Add player position"
+                        style={{
+                          borderRadius: 10,
+                          border: "1px solid rgba(255,255,255,0.12)",
+                          background: "rgba(255,255,255,0.06)",
+                          color: "var(--text-0)",
+                          padding: "8px 10px",
+                          outline: "none",
+                        }}
+                      >
+                        {(["QB", "RB", "WR", "TE", "K", "DST"] as Position[]).map((p) => (
+                          <option key={p} value={p}>
+                            {p}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={submitAddPlayer}
+                        disabled={!canAddPlayer}
+                        aria-label="Add player"
+                        style={{
+                          padding: "8px 10px",
+                          borderRadius: 10,
+                          border: "1px solid rgba(255,255,255,0.12)",
+                          background: canAddPlayer ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.05)",
+                          color: "var(--text-0)",
+                          fontWeight: 800,
+                          fontSize: 12,
+                          cursor: canAddPlayer ? "pointer" : "not-allowed",
+                        }}
+                      >
+                        Add
+                      </button>
+                    </div>
 
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "6px 10px",
-                borderRadius: 999,
-                border: "1px solid var(--border-0)",
-                background: "var(--panel-bg)",
-              }}
-            >
-              <span style={{ fontWeight: 700, fontSize: 12, color: "var(--text-0)" }}>Add Player:</span>
-              <input
-                value={newPlayerName}
-                onChange={(e) => setNewPlayerName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") submitAddPlayer();
-                }}
-                placeholder="Name"
-                aria-label="Add player name"
-                style={{
-                  width: 140,
-                  borderRadius: 10,
-                  border: "1px solid var(--border-0)",
-                  background: "var(--panel-bg-2)",
-                  color: "var(--text-0)",
-                  padding: "6px 10px",
-                  outline: "none",
-                }}
-              />
-              <select
-                value={newPlayerPos}
-                onChange={(e) => setNewPlayerPos(e.target.value as Position)}
-                aria-label="Add player position"
-                style={{
-                  borderRadius: 10,
-                  border: "1px solid var(--border-0)",
-                  background: "var(--panel-bg-2)",
-                  color: "var(--text-0)",
-                  padding: "6px 10px",
-                  outline: "none",
-                }}
-              >
-                {(["QB", "RB", "WR", "TE", "K", "DST"] as Position[]).map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={submitAddPlayer}
-                disabled={!canAddPlayer}
-                aria-label="Add player"
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 999,
-                  border: "1px solid var(--border-0)",
-                  background: canAddPlayer ? "var(--panel-bg-3)" : "var(--panel-bg-2)",
-                  color: "var(--text-0)",
-                  cursor: canAddPlayer ? "pointer" : "not-allowed",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontWeight: 800,
-                  lineHeight: 1,
-                }}
-              >
-                +
-              </button>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "6px 10px",
-                borderRadius: 999,
-                border: "1px solid var(--border-0)",
-                background: "var(--panel-bg)",
-              }}
-            >
-              <span style={{ fontWeight: 700, fontSize: 12, color: "var(--text-0)" }}>Teams</span>
-              <div className="numStepper">
-                <div className="numValue" aria-label="Teams">
-                  {teams}
-                </div>
-                <button
-                  type="button"
-                  className="numStepBtn"
-                  onClick={() => setTeams((n) => Math.min(20, n + 1))}
-                  disabled={teams >= 20}
-                  aria-label="Increase teams"
-                >
-                  <span className="numStepIcon numStepIconUp">▾</span>
-                </button>
-                <button
-                  type="button"
-                  className="numStepBtn"
-                  onClick={() => setTeams((n) => Math.max(2, n - 1))}
-                  disabled={teams <= 2}
-                  aria-label="Decrease teams"
-                >
-                  <span className="numStepIcon numStepIconDown">▾</span>
-                </button>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <div
+                        style={{
+                          borderRadius: 12,
+                          border: "1px solid rgba(255,255,255,0.12)",
+                          background: "rgba(255,255,255,0.04)",
+                          padding: "8px 10px",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 8,
+                        }}
+                      >
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.72)", textAlign: "center" }}>Teams</span>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                          <button type="button" onClick={() => setTeams((n) => Math.max(2, n - 1))} style={{ borderRadius: 999, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)", color: "var(--text-0)", width: 28, height: 28 }}>−</button>
+                          <span style={{ fontWeight: 800, color: "var(--text-0)", minWidth: 18, textAlign: "center" }}>{teams}</span>
+                          <button type="button" onClick={() => setTeams((n) => Math.min(20, n + 1))} style={{ borderRadius: 999, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)", color: "var(--text-0)", width: 28, height: 28 }}>+</button>
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          borderRadius: 12,
+                          border: "1px solid rgba(255,255,255,0.12)",
+                          background: "rgba(255,255,255,0.04)",
+                          padding: "8px 10px",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 8,
+                        }}
+                      >
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.72)", textAlign: "center" }}>Rounds</span>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                          <button type="button" onClick={() => setRounds((n) => Math.max(1, n - 1))} style={{ borderRadius: 999, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)", color: "var(--text-0)", width: 28, height: 28 }}>−</button>
+                          <span style={{ fontWeight: 800, color: "var(--text-0)", minWidth: 18, textAlign: "center" }}>{rounds}</span>
+                          <button type="button" onClick={() => setRounds((n) => Math.min(40, n + 1))} style={{ borderRadius: 999, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)", color: "var(--text-0)", width: 28, height: 28 }}>+</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.72)" }}>Draft Style</span>
+                      <select
+                        value={draftStyle}
+                        onChange={(e) => setDraftStyle(e.target.value as DraftStyle)}
+                        style={{
+                          borderRadius: 10,
+                          border: "1px solid rgba(255,255,255,0.12)",
+                          background: "rgba(255,255,255,0.06)",
+                          color: "var(--text-0)",
+                          padding: "8px 10px",
+                          outline: "none",
+                        }}
+                      >
+                        <option value="Snake Draft">Snake Draft</option>
+                        <option value="Regular Draft">Regular Draft</option>
+                        <option value="Third Round Reversal">Third Round Reversal</option>
+                      </select>
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDesktopSettingsOpen(false);
+                          onOpenDraftSync?.();
+                        }}
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: 12,
+                          border: "1px solid rgba(255,255,255,0.12)",
+                          background: "rgba(255,255,255,0.08)",
+                          color: "var(--text-0)",
+                          cursor: "pointer",
+                          fontWeight: 800,
+                          fontSize: 13,
+                        }}
+                      >
+                        Sync Draft
+                      </button>
+                      <button
+                        type="button"
+                        onClick={clearAllDrafted}
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: 12,
+                          border: "1px solid rgba(255,255,255,0.12)",
+                          background: "rgba(255,255,255,0.06)",
+                          color: "var(--text-0)",
+                          cursor: "pointer",
+                          fontWeight: 800,
+                          fontSize: 13,
+                        }}
+                      >
+                        Undraft All
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "6px 10px",
-                borderRadius: 999,
-                border: "1px solid var(--border-0)",
-                background: "var(--panel-bg)",
-              }}
-            >
-              <span style={{ fontWeight: 700, fontSize: 12, color: "var(--text-0)" }}>Rounds</span>
-              <div className="numStepper">
-                <div className="numValue" aria-label="Rounds">
-                  {rounds}
-                </div>
-                <button
-                  type="button"
-                  className="numStepBtn"
-                  onClick={() => setRounds((n) => Math.min(40, n + 1))}
-                  disabled={rounds >= 40}
-                  aria-label="Increase rounds"
-                >
-                  <span className="numStepIcon numStepIconUp">▾</span>
-                </button>
-                <button
-                  type="button"
-                  className="numStepBtn"
-                  onClick={() => setRounds((n) => Math.max(1, n - 1))}
-                  disabled={rounds <= 1}
-                  aria-label="Decrease rounds"
-                >
-                  <span className="numStepIcon numStepIconDown">▾</span>
-                </button>
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "6px 10px",
-                borderRadius: 999,
-                border: "1px solid var(--border-0)",
-                background: "var(--panel-bg)",
-              }}
-            >
-              <span style={{ fontWeight: 700, fontSize: 12, color: "var(--text-0)" }}>Draft Style</span>
-              <select
-                value={draftStyle}
-                onChange={(e) => setDraftStyle(e.target.value as DraftStyle)}
-                style={{
-                  background: "transparent",
-                  color: "var(--text-0)",
-                  border: "1px solid var(--border-0)",
-                  borderRadius: 10,
-                  padding: "4px 8px",
-                  outline: "none",
-                  boxSizing: "border-box",
-                }}
-              >
-                <option value="Snake Draft">Snake Draft</option>
-                <option value="Regular Draft">Regular Draft</option>
-                <option value="Third Round Reversal">Third Round Reversal</option>
-              </select>
-            </div>
-
-            <button
-              onClick={clearAllDrafted}
-              style={{
-                boxSizing: "border-box",
-                padding: "8px 12px",
-                borderRadius: 12,
-                border: "1px solid var(--border-0)",
-                background: "var(--panel-bg)",
-                color: "var(--text-0)",
-                cursor: "pointer",
-                fontWeight: 700,
-                fontSize: 13,
-              }}
-            >
-              Undraft All
-            </button>
-            </div>}
+            )}
           </div>
         )}
 
@@ -1054,6 +1601,47 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
               </DndContext>
             )}
           </div>
+        ) : boardTab === "Draft Planner" ? (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 0,
+              paddingTop: 4,
+            }}
+          >
+            <DndContext
+              sensors={sensors}
+              onDragStart={onPlannerDragStart}
+              onDragOver={onPlannerDragOver}
+              onDragEnd={onPlannerDragEnd}
+              onDragCancel={() => setActivePlannerPlayerId(null)}
+            >
+              {plannerRows.map((playerIds, rowIndex) => (
+                <PlannerRoundLane
+                  key={`planner-round-${rowIndex + 1}`}
+                  round={rowIndex + 1}
+                  playerIds={playerIds}
+                  playersById={playersById}
+                  posColor={posColor}
+                  activePlannerPlayerId={activePlannerPlayerId}
+                  isCurrentRound={currentDraftRound === rowIndex + 1}
+                  onToggleFavorite={onToggleFavorite}
+                  onOpenAddPlayer={openPlannerAssignModal}
+                />
+              ))}
+              <DragOverlay>
+                {activePlannerPlayerId && playersById[activePlannerPlayerId] ? (
+                  <PlannerFavoriteCard
+                    player={playersById[activePlannerPlayerId]!}
+                    posColor={posColor}
+                    sortableEnabled={false}
+                    onToggleFavorite={onToggleFavorite}
+                  />
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+          </div>
         ) : boardTab === "Cheatsheet" ? (
           <div
             style={{
@@ -1186,6 +1774,7 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                                   bg={"var(--surface-0)"}
                                   marginRight={boardCellMarginRight}
                                   tabletMode={tabletMode}
+                                  dimDrafted={false}
                                 />
                               );
                             }
@@ -1245,6 +1834,7 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                                   bg={"var(--surface-0)"}
                                   marginRight={boardCellMarginRight}
                                   tabletMode={tabletMode}
+                                  dimDrafted={false}
                                 />
                               );
                             }
@@ -1292,6 +1882,7 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                                 bg={posColor(player.position)}
                                 marginRight={boardCellMarginRight}
                                 tabletMode={tabletMode}
+                                dimDrafted={false}
                               />
                             );
                           }
@@ -1555,6 +2146,148 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                     onAssignPlayerToDraftSlot(draftAssignModal.slotIndex, id);
                     if (!draftedIds.has(id)) onToggleDrafted(id);
                     setDraftAssignModal(null);
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "10px 10px",
+                    borderRadius: 14,
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    background: "rgba(255,255,255,0.06)",
+                    color: "var(--text-0)",
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
+                >
+                  <img
+                    src={p.imageUrl || "/headshot-placeholder.svg"}
+                    alt={p.name}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 999,
+                      objectFit: "cover",
+                      border: "1px solid rgba(0,0,0,0.15)",
+                      background: "rgba(255,255,255,0.35)",
+                      flexShrink: 0,
+                    }}
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = "/headshot-placeholder.svg";
+                    }}
+                  />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+                    <div style={{ fontWeight: 950, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {p.name}
+                    </div>
+                    <div style={{ fontSize: 12, opacity: 0.8, fontWeight: 850 }}>{p.position}</div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
+
+{/* Draft Planner: Add Favorite modal */}
+{isPlanner && !mobileMode && plannerAssignModal && (
+  <div
+    onClick={() => setPlannerAssignModal(null)}
+    style={{
+      position: "fixed",
+      inset: 0,
+      zIndex: 2100,
+      background: "rgba(0,0,0,0.55)",
+      backdropFilter: "blur(6px)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 16,
+    }}
+  >
+    <div
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        width: "min(760px, 100%)",
+        maxHeight: "min(80vh, 820px)",
+        borderRadius: 18,
+        border: "1px solid rgba(255,255,255,0.14)",
+        background: "rgba(18,18,22,0.96)",
+        boxShadow: "0 22px 60px rgba(0,0,0,0.55)",
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <div style={{ padding: 14, borderBottom: "1px solid rgba(255,255,255,0.10)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 950, opacity: 0.9 }}>Add Player To Planner</div>
+            <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>{plannerAssignModal.label}</div>
+          </div>
+
+          <button
+            onClick={() => setPlannerAssignModal(null)}
+            style={{
+              padding: "8px 10px",
+              borderRadius: 10,
+              border: "1px solid rgba(255,255,255,0.14)",
+              background: "transparent",
+              color: "var(--text-0)",
+              fontWeight: 900,
+              cursor: "pointer",
+            }}
+          >
+            Close
+          </button>
+        </div>
+
+        <input
+          ref={plannerAssignInputRef}
+          autoFocus
+          value={plannerAssignQuery}
+          onChange={(e) => setPlannerAssignQuery(e.target.value)}
+          placeholder="Search players..."
+          style={{
+            marginTop: 10,
+            width: "100%",
+            padding: "10px 12px",
+            borderRadius: 12,
+            border: "1px solid rgba(255,255,255,0.12)",
+            background: "rgba(255,255,255,0.06)",
+            color: "var(--text-0)",
+            outline: "none",
+            fontWeight: 750,
+          }}
+        />
+        <div style={{ fontSize: 12, opacity: 0.72, marginTop: 8 }}>
+          Showing players that are not already favorited.
+        </div>
+      </div>
+
+      <div style={{ padding: 12, overflow: "auto" }}>
+        {plannerAssignCandidates.length === 0 ? (
+          <div style={{ padding: 18, opacity: 0.8, fontWeight: 750 }}>No matching players available.</div>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+              gap: 10,
+            }}
+          >
+            {plannerAssignCandidates.map((id: string) => {
+              const p = playersById[id];
+              if (!p) return null;
+              return (
+                <button
+                  key={id}
+                  onClick={() => {
+                    addPlayerToPlannerRound(id, plannerAssignModal.round);
+                    setPlannerAssignModal(null);
                   }}
                   style={{
                     display: "flex",

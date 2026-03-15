@@ -794,7 +794,7 @@ export default function TeamsBoard(props: {
                   flexDirection: "column",
                   marginRight: fitToViewport ? 1 : 4,
                   borderRadius: fitToViewport ? 7 : 18,
-                  padding: fitToViewport ? 0 : 4,
+                  padding: fitToViewport ? 0 : 0,
                   background: isNextPickingTeam ? "rgba(255, 215, 0, 0.12)" : undefined,
                   boxShadow: isNextPickingTeam ? "0 0 0 2px rgba(255, 215, 0, 0.38)" : undefined,
                 }}
@@ -804,7 +804,7 @@ export default function TeamsBoard(props: {
                     width: fitToViewport ? 72 : 140,
                     minWidth: fitToViewport ? 72 : 140,
                     minHeight: fitToViewport ? 14 : 18,
-                    marginRight: fitToViewport ? 1 : 4,
+                    marginRight: fitToViewport ? 1 : 0,
                     marginBottom: fitToViewport ? 2 : 4,
                     display: "flex",
                     alignItems: "center",
@@ -830,7 +830,7 @@ export default function TeamsBoard(props: {
                     width: fitToViewport ? 72 : 140,
                     minWidth: fitToViewport ? 72 : 140,
                     minHeight: fitToViewport ? 28 : undefined,
-                    marginRight: fitToViewport ? 1 : 4,
+                    marginRight: fitToViewport ? 1 : 0,
                     marginBottom: fitToViewport ? 2 : 4,
                     borderRadius: fitToViewport ? 7 : 16,
                     border: isNextPickingTeam

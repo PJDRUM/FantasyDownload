@@ -381,6 +381,8 @@ export default function CompareRankingsView(props: {
           paddingBottom: 4,
           scrollbarWidth: "none",
           msOverflowStyle: "none",
+          display: "flex",
+          justifyContent: "center",
         }}
       >
         <DndContext
@@ -392,7 +394,7 @@ export default function CompareRankingsView(props: {
           }}
         >
           <SortableContext items={columnIds} strategy={horizontalListSortingStrategy}>
-            <div style={{ display: "flex", gap: 14, alignItems: "stretch", width: "fit-content", minHeight: "100%" }}>
+            <div style={{ display: "flex", gap: 14, alignItems: "stretch", width: "fit-content", minHeight: "100%", margin: "0 auto" }}>
               {columns.map((column) => (
                 <SortableCompareColumn
                   key={column.id}

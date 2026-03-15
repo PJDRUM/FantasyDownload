@@ -177,8 +177,10 @@ export function BoardCell({
             fontSize: 11,
             fontWeight: 900,
             letterSpacing: 0.2,
-            background: "rgba(0,0,0,0.68)",
+            background: "#05070f",
             color: "#fff",
+            zIndex: 4,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
           }}
         >
           DRAFTED

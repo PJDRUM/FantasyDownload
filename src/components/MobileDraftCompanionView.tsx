@@ -135,13 +135,13 @@ function MobileRankingRow(props: {
         display: "grid",
         gridTemplateColumns: metricValue
           ? tabletMode
-            ? "50px 32px minmax(0, 1fr) 64px 38px"
-            : "42px 24px minmax(0, 1fr) 54px 32px"
+            ? "50px 34px minmax(0, 1fr) 64px 38px"
+            : "42px 26px minmax(0, 1fr) 54px 32px"
           : tabletMode
-            ? "50px 32px minmax(0, 1fr) 38px"
-            : "42px 24px minmax(0, 1fr) 32px",
+            ? "50px 34px minmax(0, 1fr) 38px"
+            : "42px 26px minmax(0, 1fr) 32px",
         alignItems: "center",
-        gap: tabletMode ? 10 : 8,
+        gap: tabletMode ? 12 : 9,
         padding: tabletMode ? "10px 14px" : "6px 10px",
         borderBottom: "1px solid rgba(255,255,255,0.08)",
         background: rowBg,
@@ -170,7 +170,7 @@ function MobileRankingRow(props: {
       <div
         style={{
           color: "rgba(255,255,255,0.72)",
-          fontSize: tabletMode ? 14 : 12,
+          fontSize: tabletMode ? 16 : 13,
           fontWeight: 900,
           textAlign: "center",
           lineHeight: 1,
@@ -179,13 +179,13 @@ function MobileRankingRow(props: {
         {rank}
       </div>
 
-      <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: tabletMode ? 10 : 8 }}>
+      <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: tabletMode ? 12 : 9 }}>
         <img
           src={player.imageUrl || "/headshot-placeholder.svg"}
           alt={player.name}
           style={{
-            width: tabletMode ? 30 : 24,
-            height: tabletMode ? 30 : 24,
+            width: tabletMode ? 38 : 30,
+            height: tabletMode ? 38 : 30,
             borderRadius: 999,
             objectFit: "cover",
             border: "1px solid rgba(255,255,255,0.12)",
@@ -203,7 +203,7 @@ function MobileRankingRow(props: {
           <div
             style={{
               color: "var(--text-0)",
-              fontSize: tabletMode ? 14 : 12,
+              fontSize: tabletMode ? 18 : 14,
               fontWeight: 900,
               lineHeight: 1.1,
               whiteSpace: "nowrap",
@@ -214,11 +214,11 @@ function MobileRankingRow(props: {
           >
             {player.name}
           </div>
-          <div style={{ marginTop: tabletMode ? 3 : 2, display: "flex", alignItems: "center", gap: tabletMode ? 7 : 6, color: "rgba(255,255,255,0.68)", fontSize: tabletMode ? 11 : 10, fontWeight: 700 }}>
+          <div style={{ marginTop: tabletMode ? 3 : 2, display: "flex", alignItems: "center", gap: tabletMode ? 8 : 7, color: "rgba(255,255,255,0.68)", fontSize: tabletMode ? 13 : 11, fontWeight: 700 }}>
             <span
               style={{
-                width: tabletMode ? 7 : 6,
-                height: tabletMode ? 7 : 6,
+                width: tabletMode ? 9 : 7,
+                height: tabletMode ? 9 : 7,
                 borderRadius: 999,
                 background: posColor(player.position),
                 flex: "0 0 auto",
@@ -227,7 +227,7 @@ function MobileRankingRow(props: {
             <span>{player.position}</span>
             <TeamLogo
               team={player.team}
-              size={tabletMode ? 14 : 12}
+              size={tabletMode ? 18 : 15}
               fallback={<span>{formatTeamAbbreviation(player.team, "FA")}</span>}
             />
           </div>
@@ -506,9 +506,9 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                   : tab === "Rankings Board"
                     ? "1.25 1 0"
                     : tab === "Cheatsheet"
-                      ? "1.18 1 0"
+                      ? "1.28 1 0"
                       : tab === "Teams"
-                        ? "0.88 1 0"
+                        ? "0.8 1 0"
                       : "1 1 0",
                 minWidth: 0,
                 minHeight: isTablet ? undefined : 28,

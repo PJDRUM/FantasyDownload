@@ -6,6 +6,7 @@ type TopBannerProps = {
   onExportCheatsheetPdf: () => void;
   onImportRankings: () => void;
   onOpenHowTo: () => void;
+  onOpenDraftSync: () => void;
   activeView: "draftCompanion" | "compareRankings";
   onOpenDraftCompanion: () => void;
   onOpenCompareRankings: () => void;
@@ -51,6 +52,7 @@ export default function TopBanner({
   onExportCheatsheetPdf,
   onImportRankings,
   onOpenHowTo,
+  onOpenDraftSync,
   activeView,
   onOpenDraftCompanion,
   onOpenCompareRankings,
@@ -456,6 +458,29 @@ export default function TopBanner({
 
         {/* Right actions: Podcasts next to Settings */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px" }}>
+          <button
+            type="button"
+            onClick={onOpenDraftSync}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "8px 12px",
+              borderRadius: 12,
+              border: "1px solid rgba(255,255,255,0.1)",
+              background: "rgba(255,255,255,0.08)",
+              color: "rgba(255,255,255,0.92)",
+              fontWeight: 800,
+              fontSize: 14,
+              lineHeight: 1,
+              whiteSpace: "nowrap",
+              textShadow: "0 8px 20px rgba(0,0,0,0.55)",
+              cursor: "pointer",
+            }}
+          >
+            <span>Sync Sleeper</span>
+          </button>
+
           <button
             ref={podcastsAnchorRef}
             onClick={togglePodcasts}

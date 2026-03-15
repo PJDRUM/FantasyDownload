@@ -12,6 +12,7 @@ import HowToModal from "./components/HowToModal";
 import TopBanner from "./components/TopBanner";
 import CompareRankingsView, { type CompareRankingsColumn } from "./components/CompareRankingsView";
 import MobileDraftCompanionView from "./components/MobileDraftCompanionView";
+import DraftSyncPanel from "./components/DraftSyncPanel";
 
 import { posColor } from "./utils/posColor";
 import { exportCheatsheetPdf } from "./utils/cheatsheetPdf";
@@ -31,6 +32,8 @@ import {
 
 import { DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
+import { applyDraftSyncPayload, type DraftSyncPayload } from "./utils/draftSync";
+import { loadDraftSyncRequest, type DraftSyncRequest } from "./utils/draftSyncProviders";
 
 type ScoringFormat = "standard" | "halfPpr" | "ppr";
 type AppView = "draftCompanion" | "compareRankings";
@@ -90,6 +93,9 @@ function shouldUseTouchLayout() {
 
 export default function App() {
   const [activeView, setActiveView] = useState<AppView>("draftCompanion");
+  const [showDraftSyncModal, setShowDraftSyncModal] = useState(false);
+  const [lastDraftSyncRequest, setLastDraftSyncRequest] = useState<DraftSyncRequest | null>(null);
+  const [isRefreshingDraftSync, setIsRefreshingDraftSync] = useState(false);
   const [modeNavLeftPx, setModeNavLeftPx] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState(() => shouldUseTouchLayout());
   const [teams, setTeams] = useState(12);
@@ -761,6 +767,69 @@ export default function App() {
     setDraftSlots(Array.from({ length: totalDraftSlots }, () => null));
   }
 
+  const applyDraftSync = useCallback(
+    async (payload: DraftSyncPayload) => {
+      const applied = applyDraftSyncPayload({
+        payload,
+        playersById,
+        fallbackTeams: teams,
+        fallbackRounds: rounds,
+        fallbackTeamNames: teamNames,
+      });
+
+      setTeams(applied.teams);
+      setRounds(applied.rounds);
+      if (applied.draftStyle) setDraftStyle(applied.draftStyle);
+      setTeamNames(applied.teamNames ?? Array.from({ length: applied.teams }, (_, index) => `Team ${index + 1}`));
+      if (applied.createdPlayers.length) {
+        setExtraPlayers((prev) => {
+          const existingIds = new Set(prev.map((player) => player.id));
+          const additions = applied.createdPlayers.filter((player) => !existingIds.has(player.id));
+          return additions.length ? [...prev, ...additions] : prev;
+        });
+      }
+      setDraftedIds(new Set(applied.draftedIds));
+      setDraftedOrder(applied.draftedOrder);
+      setDraftSlots(applied.draftSlots);
+
+      return {
+        sourceLabel: payload.sourceLabel,
+        receivedCount: payload.picks.length,
+        importedCount: applied.draftedOrder.length,
+        unmatchedCount: applied.unmatchedPicks.length,
+        unmatchedExamples: applied.unmatchedPicks.slice(0, 5).map((pick) => pick.playerName || `Pick ${pick.pickNumber}`),
+      };
+    },
+    [playersById, rounds, setExtraPlayers, teamNames, teams]
+  );
+
+  const refreshDraftSync = useCallback(async () => {
+    if (!lastDraftSyncRequest) return;
+    setIsRefreshingDraftSync(true);
+    try {
+      const payload = await loadDraftSyncRequest(lastDraftSyncRequest);
+      await applyDraftSync(payload);
+    } finally {
+      setIsRefreshingDraftSync(false);
+    }
+  }, [applyDraftSync, lastDraftSyncRequest]);
+
+  const draftSyncPanel = useMemo(
+    () => <DraftSyncPanel onApplySync={applyDraftSync} onSyncSuccess={setLastDraftSyncRequest} />,
+    [applyDraftSync]
+  );
+
+  useEffect(() => {
+    if (!showDraftSyncModal) return undefined;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowDraftSyncModal(false);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [showDraftSyncModal]);
+
   // ----- tiers normalization (still used for import safety) -----
   function normalizeTierBreaks(pos: Position, breaks: string[], ids: string[]) {
     const posIds = ids.filter((id) => playersById[id]?.position === pos);
@@ -1089,6 +1158,55 @@ export default function App() {
   return (
     <div className="appViewport">
       {showHowTo && <HowToModal onClose={closeHowTo} />}
+      {showDraftSyncModal && (
+        <div
+          onClick={() => setShowDraftSyncModal(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 4000,
+            background: "rgba(0,0,0,0.58)",
+            backdropFilter: "blur(6px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: "min(1180px, 100%)",
+              maxHeight: "min(94vh, 1100px)",
+              overflow: "auto",
+              borderRadius: 18,
+              border: "1px solid rgba(255,255,255,0.12)",
+              background: "rgba(10,14,28,0.98)",
+              boxShadow: "0 28px 70px rgba(0,0,0,0.5)",
+              padding: 24,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+              <button
+                type="button"
+                onClick={() => setShowDraftSyncModal(false)}
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.06)",
+                  color: "var(--text-0)",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                Close
+              </button>
+            </div>
+            {draftSyncPanel}
+          </div>
+        </div>
+      )}
 
       <div
         style={{
@@ -1105,6 +1223,7 @@ export default function App() {
               onExportCheatsheetPdf={exportCheatsheetPdfClick}
               onImportRankings={importRankingsXlsxClick}
               onOpenHowTo={() => setShowHowTo(true)}
+              onOpenDraftSync={() => setShowDraftSyncModal(true)}
               activeView={activeView}
               onOpenDraftCompanion={() => setActiveView("draftCompanion")}
               onOpenCompareRankings={() => setActiveView("compareRankings")}
@@ -1153,7 +1272,7 @@ export default function App() {
         ) : isMobile ? (
           <MobileDraftCompanionView
             favoriteIds={favoriteIds}
-            boardTab={boardTab}
+            boardTab={boardTab === "Draft Planner" ? "Rankings Board" : boardTab}
             setBoardTab={setBoardTab}
             rounds={rounds}
             setRounds={setRounds}
@@ -1278,6 +1397,7 @@ export default function App() {
                   onUpdateTiersByPos={onUpdateTiersByPos}
                   draftedIds={draftedIds}
                   onToggleDrafted={toggleDrafted}
+                  onToggleFavorite={toggleFavorite}
                   clearAllDrafted={clearAllDrafted}
                   teamNames={teamNames}
                   setTeamNames={setTeamNames}
@@ -1287,6 +1407,9 @@ export default function App() {
                   sensors={sensors}
                   onBoardDragEnd={onBoardDragEnd}
                   onDraftBoardDragEnd={onDraftBoardDragEnd}
+                  onOpenDraftSync={() => setShowDraftSyncModal(true)}
+                  onRefreshDraftSync={lastDraftSyncRequest ? refreshDraftSync : undefined}
+                  isRefreshingDraftSync={isRefreshingDraftSync}
                 />
               </div>
             </div>
