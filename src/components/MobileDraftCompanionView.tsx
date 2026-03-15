@@ -17,6 +17,30 @@ const MOBILE_SOURCE_TABS: Array<{ key: RankingsListKey; label: string }> = [
 ];
 type ScoringFormat = "standard" | "halfPpr" | "ppr";
 
+function getTouchTabLabel(tab: BoardTab, isTablet: boolean) {
+  if (isTablet) return tab;
+  if (tab === "Rankings Board") return <>Rankings<br />Board</>;
+  if (tab === "Draft Board") return <>Draft<br />Board</>;
+  return tab;
+}
+
+const mobileSettingsSelectStyle: React.CSSProperties = {
+  borderRadius: 10,
+  border: "1px solid rgba(255,255,255,0.12)",
+  backgroundColor: "rgba(255,255,255,0.06)",
+  backgroundImage:
+    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\")",
+  backgroundRepeat: "no-repeat",
+  backgroundPosition: "right 10px center",
+  backgroundSize: "10px 6px",
+  color: "var(--text-0)",
+  padding: "8px 28px 8px 10px",
+  outline: "none",
+  appearance: "none",
+  WebkitAppearance: "none",
+  MozAppearance: "none",
+};
+
 function normalizeMobileSearch(value: string) {
   return value
     .toLowerCase()
@@ -438,9 +462,9 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
           gap: 6,
           alignItems: "center",
           justifyContent: "space-between",
-          padding: isTablet ? 4 : 2,
+          padding: isTablet ? 4 : 1,
           borderRadius: 999,
-          margin: isTablet ? "12px 12px 0" : "8px 8px 0",
+          margin: isTablet ? "12px 12px 0" : "6px 1px 0",
         }}
       >
         <div
@@ -467,21 +491,22 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
               type="button"
               onClick={() => setBoardTab(tab)}
               style={{
-                padding: isTablet ? "8px 14px" : "5px 6px",
+                padding: isTablet ? "8px 14px" : "4px 6px",
                 borderRadius: 999,
                 border: boardTab === tab ? "1px solid rgba(255,255,255,0.18)" : "1px solid transparent",
                 background: boardTab === tab ? "rgba(255,255,255,0.1)" : "transparent",
                 color: "var(--text-0)",
                 fontWeight: 800,
                 fontSize: isTablet ? 12 : 8,
-                lineHeight: isTablet ? "14px" : "10px",
+                lineHeight: isTablet ? "14px" : "9px",
                 cursor: "pointer",
-                whiteSpace: "nowrap",
+                whiteSpace: isTablet ? "nowrap" : "normal",
                 flex: isTablet ? "0 0 auto" : tab === "Rankings Board" ? "1.25 1 0" : "1 1 0",
                 minWidth: 0,
+                textAlign: "center",
               }}
             >
-              {tab}
+              {getTouchTabLabel(tab, isTablet)}
             </button>
           ))}
         </div>
@@ -626,14 +651,7 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
               <select
                 value={newPlayerPos}
                 onChange={(event) => setNewPlayerPos(event.target.value as Position)}
-                style={{
-                  borderRadius: 10,
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  background: "rgba(255,255,255,0.06)",
-                  color: "var(--text-0)",
-                  padding: "8px 8px",
-                  outline: "none",
-                }}
+                style={mobileSettingsSelectStyle}
               >
                 {(["QB", "RB", "WR", "TE", "K", "DST"] as Position[]).map((position) => (
                   <option key={position} value={position}>
@@ -705,14 +723,7 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
               <select
                 value={draftStyle}
                 onChange={(event) => setDraftStyle(event.target.value as DraftStyle)}
-                style={{
-                  borderRadius: 10,
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  background: "rgba(255,255,255,0.06)",
-                  color: "var(--text-0)",
-                  padding: "8px 10px",
-                  outline: "none",
-                }}
+                style={mobileSettingsSelectStyle}
               >
                 <option value="Snake Draft">Snake Draft</option>
                 <option value="Regular Draft">Regular Draft</option>
