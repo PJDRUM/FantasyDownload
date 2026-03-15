@@ -1,6 +1,7 @@
 // src/utils/cheatsheetPdf.ts
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import type { Position, Player } from "../models/Player";
+import { formatTeamAbbreviation } from "./teamAbbreviation";
 import type { TiersByPos } from "./xlsxRankings";
 
 /**
@@ -123,8 +124,7 @@ function positionLabel(pos: Position): string {
 }
 
 function clampTeam(team: unknown): string {
-  const t = String(team ?? "").trim();
-  return t;
+  return formatTeamAbbreviation(team);
 }
 
 function formatPlayerLine(p: Player, rank: number): string {

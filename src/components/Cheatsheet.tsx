@@ -2,7 +2,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { Position, Player } from "../models/Player";
 import type { TiersByPos } from "../utils/xlsxRankings";
+import TeamLogo from "./TeamLogo";
 import { useFitZoomViewport } from "./useFitZoomViewport";
+import { formatTeamAbbreviation } from "../utils/teamAbbreviation";
 
 function getPlayerRankValue(p: Player | undefined | null): number {
   if (!p) return Number.POSITIVE_INFINITY;
@@ -556,7 +558,11 @@ export default function Cheatsheet(props: {
                                     </span>
                                     <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                                       {p.team ? (
-                                        <span style={{ fontSize: 11, opacity: 0.7, fontWeight: 750, whiteSpace: "nowrap" }}>{p.team}</span>
+                                        <TeamLogo
+                                          team={p.team}
+                                          size={14}
+                                          fallback={<span style={{ fontSize: 11, opacity: 0.7, fontWeight: 750, whiteSpace: "nowrap" }}>{formatTeamAbbreviation(p.team)}</span>}
+                                        />
                                       ) : null}
                                       {p.age != null ? (
                                         <span style={{ fontSize: 11, opacity: 0.7, fontWeight: 750, whiteSpace: "nowrap" }}>{p.age}</span>

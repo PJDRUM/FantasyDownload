@@ -4,7 +4,9 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import type { Position, Player } from "../models/Player";
 import type { RankingsListKey, TiersByPos } from "../utils/xlsxRankings";
+import { formatTeamAbbreviation } from "../utils/teamAbbreviation";
 import Board, { type BoardTab, type DraftStyle } from "./Board";
+import TeamLogo from "./TeamLogo";
 
 const TOUCH_LAYOUT_TABS: BoardTab[] = ["Rankings Board", "Draft Board", "Cheatsheet", "Teams"];
 const MOBILE_SOURCE_TABS: Array<{ key: RankingsListKey; label: string }> = [
@@ -199,7 +201,11 @@ function MobileRankingRow(props: {
               }}
             />
             <span>{player.position}</span>
-            <span>{player.team || "FA"}</span>
+            <TeamLogo
+              team={player.team}
+              size={tabletMode ? 14 : 12}
+              fallback={<span>{formatTeamAbbreviation(player.team, "FA")}</span>}
+            />
           </div>
         </div>
       </div>
@@ -228,23 +234,38 @@ function MobileRankingRow(props: {
         {...attributes}
         {...listeners}
         style={{
-          width: tabletMode ? 34 : 28,
-          height: tabletMode ? 34 : 28,
+          width: tabletMode ? 58 : 50,
+          height: tabletMode ? 52 : 44,
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
+          position: "relative",
           borderRadius: tabletMode ? 9 : 8,
-          border: "1px solid rgba(255,255,255,0.1)",
-          background: "rgba(255,255,255,0.06)",
+          border: "none",
+          background: "transparent",
           color: sortable ? "rgba(255,255,255,0.84)" : "rgba(255,255,255,0.38)",
           cursor: sortable ? "grab" : "default",
           touchAction: sortable ? "none" : "auto",
           opacity: sortable ? 1 : 0.65,
+          marginRight: tabletMode ? -10 : -8,
         }}
       >
         <svg width={tabletMode ? "16" : "14"} height={tabletMode ? "16" : "14"} viewBox="0 0 20 20" fill="none" aria-hidden="true">
           <path d="M4 5h12M4 10h12M4 15h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </svg>
+        {!sortable ? (
+          <svg
+            width={tabletMode ? "24" : "22"}
+            height={tabletMode ? "24" : "22"}
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+            style={{ position: "absolute" }}
+          >
+            <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.8" opacity="0.9" />
+            <path d="M7.5 16.5l9-9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
+        ) : null}
       </button>
     </div>
   );
@@ -303,9 +324,22 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
   const [query, setQuery] = useState("");
   const [activePosition, setActivePosition] = useState<"ALL" | Position>("ALL");
   const [hideDrafted, setHideDrafted] = useState(false);
+  const [mobileSettingsOpen, setMobileSettingsOpen] = useState(false);
+  const [newPlayerName, setNewPlayerName] = useState("");
+  const [newPlayerPos, setNewPlayerPos] = useState<Position>("RB");
   const dragStateRef = useRef<{ startY: number; startHeight: number } | null>(null);
+  const mobileSettingsRef = useRef<HTMLDivElement | null>(null);
   const mobileSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const isTablet = viewportWidth >= 768;
+  const canAddPlayer = newPlayerName.trim().length > 0;
+
+  const submitAddPlayer = () => {
+    const name = newPlayerName.trim();
+    if (!name) return;
+    onAddPlayer(name, newPlayerPos);
+    setNewPlayerName("");
+    setMobileSettingsOpen(false);
+  };
 
   const visibleRankingIds = useMemo(
     () => rankingIds.filter((id) => Boolean(playersById[id])),
@@ -336,9 +370,7 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
       if (!q) return true;
 
       const name = normalizeMobileSearch(player.name ?? "");
-      const pos = normalizeMobileSearch(player.position ?? "");
-      const team = normalizeMobileSearch(player.team ?? "");
-      return name.includes(q) || pos.includes(q) || team.includes(q);
+      return name.includes(q);
     });
   }, [query, positionFilteredRankingIds, playersById, hideDrafted, draftedIds]);
 
@@ -421,8 +453,10 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
             gap: 2,
             alignItems: "center",
             padding: isTablet ? 3 : 2,
-            overflowX: "auto",
+            overflowX: isTablet ? "auto" : "hidden",
             maxWidth: "100%",
+            minWidth: 0,
+            flex: 1,
             scrollbarWidth: "none",
             msOverflowStyle: "none",
           }}
@@ -433,16 +467,18 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
               type="button"
               onClick={() => setBoardTab(tab)}
               style={{
-                padding: isTablet ? "8px 14px" : "5px 10px",
+                padding: isTablet ? "8px 14px" : "5px 6px",
                 borderRadius: 999,
                 border: boardTab === tab ? "1px solid rgba(255,255,255,0.18)" : "1px solid transparent",
                 background: boardTab === tab ? "rgba(255,255,255,0.1)" : "transparent",
                 color: "var(--text-0)",
                 fontWeight: 800,
-                fontSize: isTablet ? 12 : 10,
-                lineHeight: isTablet ? "14px" : "12px",
+                fontSize: isTablet ? 12 : 8,
+                lineHeight: isTablet ? "14px" : "10px",
                 cursor: "pointer",
                 whiteSpace: "nowrap",
+                flex: isTablet ? "0 0 auto" : tab === "Rankings Board" ? "1.25 1 0" : "1 1 0",
+                minWidth: 0,
               }}
             >
               {tab}
@@ -494,8 +530,198 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
           >
             Export
           </button>
+          <button
+            type="button"
+            onClick={() => setMobileSettingsOpen((open) => !open)}
+            style={{
+              width: isTablet ? 36 : 32,
+              height: isTablet ? 36 : 32,
+              borderRadius: 999,
+              border: "1px solid rgba(255,255,255,0.12)",
+              background: "rgba(38,38,38,0.92)",
+              color: "var(--text-0)",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 14px 28px rgba(0,0,0,0.32)",
+            }}
+            aria-label="Open mobile draft settings"
+          >
+            ⚙
+          </button>
         </div>
       </div>
+
+      {mobileSettingsOpen ? (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 40,
+            background: "rgba(4,7,18,0.62)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "flex-end",
+            padding: isTablet ? 16 : 10,
+          }}
+          onPointerDown={() => setMobileSettingsOpen(false)}
+        >
+          <div
+            ref={mobileSettingsRef}
+            style={{
+              width: isTablet ? 340 : 296,
+              maxWidth: "calc(100vw - 20px)",
+              padding: isTablet ? 14 : 12,
+              borderRadius: 16,
+              border: "1px solid rgba(255,255,255,0.12)",
+              background: "rgba(18,18,22,0.98)",
+              boxShadow: "0 24px 50px rgba(0,0,0,0.42)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+            }}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,0.68)", letterSpacing: 0.4, textTransform: "uppercase" }}>
+                Draft Settings
+              </div>
+              <button
+                type="button"
+                onClick={() => setMobileSettingsOpen(false)}
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 999,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.06)",
+                  color: "var(--text-0)",
+                  cursor: "pointer",
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto auto", gap: 8, alignItems: "center" }}>
+              <input
+                value={newPlayerName}
+                onChange={(event) => setNewPlayerName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") submitAddPlayer();
+                }}
+                placeholder="Add player name"
+                style={{
+                  borderRadius: 10,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.06)",
+                  color: "var(--text-0)",
+                  padding: "8px 10px",
+                  outline: "none",
+                  minWidth: 0,
+                }}
+              />
+              <select
+                value={newPlayerPos}
+                onChange={(event) => setNewPlayerPos(event.target.value as Position)}
+                style={{
+                  borderRadius: 10,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.06)",
+                  color: "var(--text-0)",
+                  padding: "8px 8px",
+                  outline: "none",
+                }}
+              >
+                {(["QB", "RB", "WR", "TE", "K", "DST"] as Position[]).map((position) => (
+                  <option key={position} value={position}>
+                    {position}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={submitAddPlayer}
+                disabled={!canAddPlayer}
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: canAddPlayer ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.05)",
+                  color: "var(--text-0)",
+                  fontWeight: 800,
+                  fontSize: 12,
+                  cursor: canAddPlayer ? "pointer" : "not-allowed",
+                }}
+              >
+                Add
+              </button>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div
+                style={{
+                  borderRadius: 12,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.04)",
+                  padding: "8px 10px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+              >
+                <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.72)", textAlign: "center" }}>Teams</span>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <button type="button" onClick={() => setTeams((n) => Math.max(2, n - 1))} style={{ borderRadius: 999, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)", color: "var(--text-0)", width: 28, height: 28 }}>−</button>
+                  <span style={{ fontWeight: 800, color: "var(--text-0)", minWidth: 18, textAlign: "center" }}>{teams}</span>
+                  <button type="button" onClick={() => setTeams((n) => Math.min(20, n + 1))} style={{ borderRadius: 999, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)", color: "var(--text-0)", width: 28, height: 28 }}>+</button>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  borderRadius: 12,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.04)",
+                  padding: "8px 10px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+              >
+                <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.72)", textAlign: "center" }}>Rounds</span>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <button type="button" onClick={() => setRounds((n) => Math.max(1, n - 1))} style={{ borderRadius: 999, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)", color: "var(--text-0)", width: 28, height: 28 }}>−</button>
+                  <span style={{ fontWeight: 800, color: "var(--text-0)", minWidth: 18, textAlign: "center" }}>{rounds}</span>
+                  <button type="button" onClick={() => setRounds((n) => Math.min(40, n + 1))} style={{ borderRadius: 999, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)", color: "var(--text-0)", width: 28, height: 28 }}>+</button>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.72)" }}>Draft Style</span>
+              <select
+                value={draftStyle}
+                onChange={(event) => setDraftStyle(event.target.value as DraftStyle)}
+                style={{
+                  borderRadius: 10,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.06)",
+                  color: "var(--text-0)",
+                  padding: "8px 10px",
+                  outline: "none",
+                }}
+              >
+                <option value="Snake Draft">Snake Draft</option>
+                <option value="Regular Draft">Regular Draft</option>
+                <option value="Third Round Reversal">Third Round Reversal</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div style={{ flex: 1, minHeight: 0 }}>
         <Board
@@ -724,13 +950,13 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                 style={{
                   flex: 1,
                   minWidth: 0,
-                  padding: isTablet ? "12px 14px" : "9px 11px",
-                  borderRadius: isTablet ? 14 : 12,
+                  padding: isTablet ? "6px 10px" : "4px 8px",
+                  borderRadius: isTablet ? 10 : 8,
                   border: "1px solid rgba(255,255,255,0.12)",
                   background: "rgba(255,255,255,0.08)",
                   color: "var(--text-0)",
                   outline: "none",
-                  fontSize: isTablet ? 15 : 13,
+                  fontSize: isTablet ? 13 : 11,
                   fontWeight: 700,
                 }}
               />
@@ -740,12 +966,12 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                 onPointerDown={(event) => event.stopPropagation()}
                 style={{
                   flex: "0 0 auto",
-                  padding: isTablet ? "12px 14px" : "9px 10px",
-                  borderRadius: isTablet ? 14 : 12,
+                  padding: isTablet ? "6px 10px" : "4px 8px",
+                  borderRadius: isTablet ? 10 : 8,
                   border: "1px solid rgba(255,255,255,0.12)",
                   background: hideDrafted ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.08)",
                   color: "var(--text-0)",
-                  fontSize: isTablet ? 13 : 11,
+                  fontSize: isTablet ? 11 : 9,
                   fontWeight: 800,
                   lineHeight: 1,
                   whiteSpace: "nowrap",

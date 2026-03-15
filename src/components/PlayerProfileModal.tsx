@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { Player } from "../models/Player";
 import type { PlayerProfileEntry } from "../data/playerProfiles";
+import { formatTeamAbbreviation } from "../utils/teamAbbreviation";
+import TeamLogo from "./TeamLogo";
 
 type Props = {
   open?: boolean; // if omitted, default to true (back-compat)
@@ -138,8 +140,18 @@ export default function PlayerProfileModal({ open, onClose, player, links }: Pro
             <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.2 }}>
               {player?.name ?? "Player"}
             </div>
-            <div style={{ opacity: 0.75, fontSize: 13, marginTop: 2 }}>
-              {player ? `${player.position ?? ""}${player.team ? ` · ${player.team}` : ""}` : ""}
+            <div style={{ opacity: 0.75, fontSize: 13, marginTop: 2, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              {player?.position ? <span>{player.position}</span> : null}
+              {player?.team ? (
+                <>
+                  <span aria-hidden>·</span>
+                  <TeamLogo
+                    team={player.team}
+                    size={16}
+                    fallback={<span>{formatTeamAbbreviation(player.team)}</span>}
+                  />
+                </>
+              ) : null}
             </div>
           </div>
 

@@ -2,6 +2,32 @@
 import React from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { formatTeamAbbreviation } from "../utils/teamAbbreviation";
+import TeamLogo from "./TeamLogo";
+
+function splitLabelAndArrow(label: string) {
+  const trimmed = label.trim();
+  if (trimmed.startsWith("← ")) {
+    return { labelText: trimmed.slice(2).trim(), directionArrow: "←" };
+  }
+  if (trimmed.endsWith(" →")) {
+    return { labelText: trimmed.slice(0, -2).trim(), directionArrow: "→" };
+  }
+  return { labelText: trimmed, directionArrow: "" };
+}
+
+function getNameLines(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return [parts[0] ?? "", ""];
+
+  const suffixes = new Set(["jr", "jr.", "sr", "sr.", "ii", "iii", "iv", "v"]);
+  const lastPart = parts[parts.length - 1] ?? "";
+  if (parts.length >= 3 && suffixes.has(lastPart.toLowerCase())) {
+    return [parts.slice(0, -2).join(" "), parts.slice(-2).join(" ")];
+  }
+
+  return [parts.slice(0, -1).join(" "), lastPart];
+}
 
 export function BoardCell({
   id,
@@ -77,9 +103,6 @@ export function BoardCell({
         minHeight,
         aspectRatio,
         borderRadius,
-        border: "1px solid rgba(255,255,255,0.10)",
-        outline: "1px solid rgba(0,0,0,0.18)",
-        background: bg,
         padding,
         marginRight,
         position: "relative",
@@ -92,9 +115,28 @@ export function BoardCell({
         aria-hidden
         style={{
           position: "absolute",
-          inset: 0,
-          borderRadius,
-          background: "rgba(0,0,0,0.14)",
+          top: 6,
+          right: 0,
+          bottom: 6,
+          left: 0,
+          borderRadius: Math.max(borderRadius - 4, 7),
+          border: "1px solid rgba(255,255,255,0.12)",
+          outline: "1px solid rgba(0,0,0,0.18)",
+          background: bg,
+          pointerEvents: "none",
+          zIndex: 0,
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          top: 6,
+          right: 0,
+          bottom: 6,
+          left: 0,
+          borderRadius: Math.max(borderRadius - 4, 7),
+          background: "rgba(0,0,0,0.1)",
           pointerEvents: "none",
           zIndex: 0,
         }}
@@ -179,6 +221,12 @@ export function CellContent({
     const rest = parts.slice(1).join(" ");
     return `${firstInitial}. ${rest}`.trim();
   }, [name]);
+  const displayTeam = React.useMemo(() => formatTeamAbbreviation(team, "FA"), [team]);
+  const { labelText, directionArrow } = React.useMemo(() => splitLabelAndArrow(label), [label]);
+  const nameLines = React.useMemo(
+    () => getNameLines(compact ? (forceFullName ? name : displayName) : name),
+    [compact, displayName, forceFullName, name]
+  );
 
   return (
     <div
@@ -189,72 +237,207 @@ export function CellContent({
         height: "100%",
       }}
     >
-      <div style={{ fontWeight: compact ? 650 : 900, fontSize: compact ? 8 : 12, lineHeight: compact ? 1 : undefined, opacity: compact ? 0.72 : 0.82, letterSpacing: compact ? -0.1 : 0, textShadow: compact ? "none" : "0 1px 2px rgba(0,0,0,0.65)" }}>{label}</div>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: compact ? 6 : 8, minHeight: 0, flex: 1 }}>
-        {showImage && (
-          <img
-            src={imageUrl || "/headshot-placeholder.svg"}
-            alt={name}
-            style={{
-              width: compact ? 28 : 34,
-              height: compact ? 28 : 34,
-              borderRadius: 999,
-              objectFit: "cover",
-              border: "1px solid rgba(0,0,0,0.15)",
-              background: "rgba(255,255,255,0.35)",
-              flexShrink: 0,
-            }}
-            onError={(e) => {
-              const img = e.currentTarget as HTMLImageElement;
-              if (!img.src.includes("/headshot-placeholder.svg")) {
-                img.src = "/headshot-placeholder.svg";
-              }
-            }}
-          />
-        )}
-        <div style={{ display: "flex", flexDirection: "column", gap: compact ? 1 : 2, minWidth: 0, minHeight: 0, flex: 1 }}>
-          {compact && (position.trim() || team?.trim()) ? (
-            <div
-              style={{
-                fontWeight: 600,
-                fontSize: 7,
-                lineHeight: 1,
-                opacity: 0.72,
-                letterSpacing: -0.1,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                textShadow: compact ? "none" : "0 1px 2px rgba(0,0,0,0.65)",
-              }}
-            >
-              {position.trim()}
-              {team?.trim() ? ` - ${team.trim()}` : ""}
+      {compact ? (
+        <>
+          <div style={{ fontWeight: 650, fontSize: 8, lineHeight: 1, opacity: 0.72, letterSpacing: -0.1, textShadow: "none" }}>{label}</div>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 6, minHeight: 0, flex: 1 }}>
+            {showImage && (
+              <img
+                src={imageUrl || "/headshot-placeholder.svg"}
+                alt={name}
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 999,
+                  objectFit: "cover",
+                  border: "1px solid rgba(0,0,0,0.15)",
+                  background: "rgba(255,255,255,0.35)",
+                  flexShrink: 0,
+                }}
+                onError={(e) => {
+                  const img = e.currentTarget as HTMLImageElement;
+                  if (!img.src.includes("/headshot-placeholder.svg")) {
+                    img.src = "/headshot-placeholder.svg";
+                  }
+                }}
+              />
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0, minHeight: 0, flex: 1 }}>
+              {compact && (position.trim() || team?.trim()) ? (
+                <div
+                  style={{
+                    fontWeight: 600,
+                    fontSize: 7,
+                    lineHeight: 1,
+                    opacity: 0.72,
+                    letterSpacing: -0.1,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    textShadow: "none",
+                  }}
+                >
+                  <span>{position.trim()}</span>
+                  {team?.trim() ? (
+                    <>
+                      <span style={{ opacity: 0.5 }}> - </span>
+                      <TeamLogo
+                        team={team.trim()}
+                        size={8}
+                        fallback={<span>{formatTeamAbbreviation(team.trim())}</span>}
+                      />
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
+              <div
+                style={{
+                  fontWeight: 700,
+                  fontSize: 7,
+                  lineHeight: 1.08,
+                  whiteSpace: "normal",
+                  overflow: "hidden",
+                  textOverflow: "clip",
+                  wordBreak: "break-word",
+                  display: clampNameLines ? "-webkit-box" : undefined,
+                  WebkitBoxOrient: clampNameLines ? "vertical" : undefined,
+                  WebkitLineClamp: clampNameLines,
+                  textShadow: "none",
+                }}
+              >
+                {forceFullName ? name : name}
+              </div>
             </div>
-          ) : null}
+          </div>
+        </>
+      ) : (
+        <div style={{ position: "relative", height: "100%", minHeight: 72 }}>
           <div
             style={{
-              fontWeight: compact ? 700 : 900,
-              fontSize: compact ? 7 : 14,
-              lineHeight: compact ? 1.08 : 1.1,
-              whiteSpace: compact ? "normal" : "nowrap",
-              overflow: compact ? "hidden" : "hidden",
-              textOverflow: compact ? "clip" : "ellipsis",
-              wordBreak: compact ? "break-word" : "normal",
-              display: compact && clampNameLines ? "-webkit-box" : undefined,
-              WebkitBoxOrient: compact && clampNameLines ? "vertical" : undefined,
-              WebkitLineClamp: compact && clampNameLines ? clampNameLines : undefined,
-              textShadow: compact ? "none" : "0 1px 2px rgba(0,0,0,0.65)",
+              position: "absolute",
+              top: 0,
+              right: 2,
+              fontSize: 13,
+              lineHeight: 1,
+              fontWeight: 700,
+              color: "rgba(255,255,255,0.84)",
+              letterSpacing: -0.1,
+              textAlign: "right",
             }}
           >
-            {compact && forceFullName ? name : compact ? name : displayName}
+            {labelText}
           </div>
-          {!compact ? (
-            <div style={{ fontWeight: 800, fontSize: compact ? 11 : 12, opacity: 0.85, textShadow: compact ? "none" : "0 1px 2px rgba(0,0,0,0.65)" }}>
-              {position}{showDash ? " —" : ""}
+          {directionArrow ? (
+            <div
+              style={{
+                position: "absolute",
+                right: 0,
+                bottom: 1,
+                fontSize: 16,
+                lineHeight: 1,
+                fontWeight: 500,
+                color: "rgba(255,255,255,0.84)",
+                letterSpacing: -0.1,
+              }}
+            >
+              {directionArrow}
             </div>
           ) : null}
+          {team?.trim() ? (
+            <div
+              style={{
+                position: "absolute",
+                top: 16,
+                right: -2,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <TeamLogo
+                team={team.trim()}
+                size={40}
+                fallback={<span style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.88)" }}>{displayTeam}</span>}
+              />
+            </div>
+          ) : null}
+          {name === "—" ? (
+            <div
+              style={{
+                marginTop: 12,
+                fontSize: 24,
+                lineHeight: 1,
+                fontWeight: 700,
+                color: "rgba(255,255,255,0.78)",
+              }}
+            >
+              —
+            </div>
+          ) : (
+            <>
+              <div
+                style={{
+                  marginTop: 9,
+                  paddingRight: directionArrow ? 28 : 24,
+                  fontSize: 13,
+                  lineHeight: 1,
+                  fontWeight: 650,
+                  color: "rgba(255,255,255,0.76)",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  letterSpacing: -0.1,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0,
+                }}
+              >
+                <span>{position.trim()}</span>
+                {showDash ? <span style={{ opacity: 0.5 }}>-</span> : null}
+                {showDash ? <span>{displayTeam}</span> : null}
+              </div>
+              <div
+                style={{
+                  marginTop: 3,
+                  paddingRight: directionArrow ? 22 : 16,
+                  fontSize: 16,
+                  lineHeight: 1.02,
+                  fontWeight: 700,
+                  color: "rgba(255,255,255,0.97)",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "flex-start",
+                  gap: 0,
+                  minHeight: 24,
+                  overflow: "hidden",
+                  letterSpacing: -0.08,
+                }}
+              >
+                <span
+                  style={{
+                    display: "block",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {nameLines[0]}
+                </span>
+                <span
+                  style={{
+                    display: "block",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {nameLines[1]}
+                </span>
+              </div>
+            </>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -3,6 +3,8 @@ import { DndContext, PointerSensor, type DragEndEvent, useSensor, useSensors } f
 import { SortableContext, useSortable, horizontalListSortingStrategy, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Player } from "../models/Player";
+import { formatTeamAbbreviation } from "../utils/teamAbbreviation";
+import TeamLogo from "./TeamLogo";
 
 export type CompareRankingsColumn = {
   id: string;
@@ -243,7 +245,13 @@ function StaticCompareRankingRow(props: {
         </div>
       </div>
       <div style={{ color: "rgba(255,255,255,0.72)", fontSize: 12, fontWeight: 800 }}>{player.position}</div>
-      <div style={{ color: "rgba(255,255,255,0.62)", fontSize: 12, fontWeight: 750 }}>{player.team ?? "-"}</div>
+      <div style={{ display: "flex", justifyContent: "center" }}>
+        <TeamLogo
+          team={player.team}
+          size={18}
+          fallback={<div style={{ color: "rgba(255,255,255,0.62)", fontSize: 12, fontWeight: 750 }}>{formatTeamAbbreviation(player.team, "-")}</div>}
+        />
+      </div>
     </div>
   );
 }
@@ -297,7 +305,13 @@ function SortableCompareRankingRow(props: {
         </div>
       </div>
       <div style={{ color: "rgba(255,255,255,0.72)", fontSize: 12, fontWeight: 800 }}>{player.position}</div>
-      <div style={{ color: "rgba(255,255,255,0.62)", fontSize: 12, fontWeight: 750 }}>{player.team ?? "-"}</div>
+      <div style={{ display: "flex", justifyContent: "center" }}>
+        <TeamLogo
+          team={player.team}
+          size={18}
+          fallback={<div style={{ color: "rgba(255,255,255,0.62)", fontSize: 12, fontWeight: 750 }}>{formatTeamAbbreviation(player.team, "-")}</div>}
+        />
+      </div>
     </div>
   );
 }

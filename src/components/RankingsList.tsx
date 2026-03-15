@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from "re
 import type { Player, Position } from "../models/Player";
 import type { RankingsListKey, TiersByPos } from "../utils/xlsxRankings";
 import { posColor } from "../utils/posColor";
+import { formatTeamAbbreviation } from "../utils/teamAbbreviation";
 
 import TierBar, { TierOverlay, type TierScope } from "./Rankings/TierBar";
 import Headshot from "./Rankings/Headshot";
@@ -9,6 +10,7 @@ import { buildSearchMatches, type SearchMatch } from "./Rankings/searchUtils";
 import { StarIcon, type FavoriteStarStyle } from "./Rankings/StarIcon";
 import { score10ToPct } from "./Rankings/RiskUpside";
 import PlayerProfileModal from "./PlayerProfileModal";
+import TeamLogo from "./TeamLogo";
 import { playerProfilesById } from "../data/playerProfiles";
 import { KTC_LAST_UPDATED, ADP_LAST_UPDATED, CONSENSUS_LAST_UPDATED } from "../data/rankings";
 const ENABLE_PLAYER_PROFILES_ON_RANKINGS_LIST = false; // Toggle to temporarily disable PlayerProfiles on the Rankings list.
@@ -1351,9 +1353,14 @@ export default function RankingsList(props: {
                                 marginTop: 4,
                               }}
                             >
-                              <span>
-                                <span style={{ color: posColor(p.position), fontWeight: 700 }}>{p.position}</span> •{" "}
-                                {p.team ? p.team : "--"}
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                                <span style={{ color: posColor(p.position), fontWeight: 700 }}>{p.position}</span>
+                                <span style={{ opacity: 0.55 }}>•</span>
+                                <TeamLogo
+                                  team={p.team}
+                                  size={24}
+                                  fallback={<span>{formatTeamAbbreviation(p.team, "--")}</span>}
+                                />
                               </span>
                               {drafted && (
                                 <span

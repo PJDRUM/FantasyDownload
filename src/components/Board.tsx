@@ -4,8 +4,10 @@ import { DndContext, DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, rectSortingStrategy } from "@dnd-kit/sortable";
 import { BoardCell, CellContent } from "./BoardCell";
 import Cheatsheet from "./Cheatsheet";
+import TeamLogo from "./TeamLogo";
 import TeamsBoard from "./TeamsBoard";
 import type { TiersByPos } from "../utils/xlsxRankings";
+import { formatTeamAbbreviation } from "../utils/teamAbbreviation";
 
 export type DraftStyle = "Snake Draft" | "Regular Draft" | "Third Round Reversal";
 export type BoardTab = "Rankings Board" | "Draft Board" | "Cheatsheet" | "Teams";
@@ -28,7 +30,8 @@ function isReverseRound(roundIndex: number, style: DraftStyle) {
 const BOARD_BG_URL = `${process.env.PUBLIC_URL || ""}/bg.jpg`;
 
 function MobileRankingsBoardCard(props: {
-  label: string;
+  pickLabel: string;
+  directionArrow: string;
   player?: Player;
   favorite?: boolean;
   drafted?: boolean;
@@ -36,21 +39,34 @@ function MobileRankingsBoardCard(props: {
   marginRight?: number;
   tabletMode?: boolean;
 }) {
-  const { label, player, favorite = false, drafted = false, bg, marginRight = 3, tabletMode = false } = props;
+  const { pickLabel, directionArrow, player, favorite = false, drafted = false, bg, marginRight = 3, tabletMode = false } = props;
+  const displayTeam = React.useMemo(() => {
+    return formatTeamAbbreviation(player?.team, "FA");
+  }, [player?.team]);
+  const nameLines = React.useMemo(() => {
+    if (!player?.name) return ["", ""];
+    const parts = player.name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length <= 1) return [parts[0] ?? "", ""];
+    const suffixes = new Set(["jr", "jr.", "sr", "sr.", "ii", "iii", "iv", "v"]);
+    const lastPart = parts[parts.length - 1] ?? "";
+    const normalizedLastPart = lastPart.toLowerCase();
+
+    if (parts.length >= 3 && suffixes.has(normalizedLastPart)) {
+      return [parts.slice(0, -2).join(" "), parts.slice(-2).join(" ")];
+    }
+
+    return [parts.slice(0, -1).join(" "), lastPart];
+  }, [player?.name]);
 
   return (
     <div
       style={{
         boxSizing: "border-box",
-        width: tabletMode ? 104 : 82,
-        minWidth: tabletMode ? 104 : 82,
+        width: tabletMode ? 91 : 72,
+        minWidth: tabletMode ? 91 : 72,
         height: tabletMode ? 64 : 48,
         marginRight,
         padding: tabletMode ? 5 : 4,
-        borderRadius: 11,
-        border: "1px solid rgba(255,255,255,0.12)",
-        outline: "1px solid rgba(0,0,0,0.18)",
-        background: bg,
         position: "relative",
         overflow: "hidden",
         opacity: drafted ? 0.55 : 1,
@@ -61,9 +77,29 @@ function MobileRankingsBoardCard(props: {
         aria-hidden
         style={{
           position: "absolute",
-          inset: 0,
+          top: 5,
+          right: 0,
+          bottom: 5,
+          left: 0,
+          borderRadius: 7,
+          border: "1px solid rgba(255,255,255,0.12)",
+          outline: "1px solid rgba(0,0,0,0.18)",
+          background: bg,
+          pointerEvents: "none",
+        }}
+      />
+
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          top: 5,
+          right: 0,
+          bottom: 5,
+          left: 0,
           background: "rgba(0,0,0,0.1)",
           pointerEvents: "none",
+          borderRadius: 7,
         }}
       />
 
@@ -90,51 +126,65 @@ function MobileRankingsBoardCard(props: {
           position: "relative",
           zIndex: 1,
           height: "100%",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "stretch",
         }}
       >
         <div
           style={{
+            position: "absolute",
+            top: player ? 0 : tabletMode ? 5 : 4,
+            right: favorite ? (tabletMode ? 14 : 12) : 1,
+            fontSize: tabletMode ? 7 : 6,
+            lineHeight: 1,
+            fontWeight: 700,
+            color: "rgba(255,255,255,0.84)",
+            letterSpacing: -0.1,
+            textAlign: "right",
+          }}
+        >
+          {pickLabel}
+        </div>
+
+        <div
+          style={{
+            position: "absolute",
+            right: favorite ? (tabletMode ? 11 : 9) : 0,
+            bottom: player ? (tabletMode ? 10 : 9) : tabletMode ? 6 : 5,
             fontSize: tabletMode ? 9 : 8,
             lineHeight: 1,
-            fontWeight: 650,
-            color: "rgba(255,255,255,0.78)",
+            fontWeight: 500,
+            color: "rgba(255,255,255,0.84)",
             letterSpacing: -0.1,
           }}
         >
-          {label}
+          {directionArrow}
         </div>
+
+        {player?.team ? (
+          <div
+            style={{
+              position: "absolute",
+              top: tabletMode ? 12 : 8,
+              right: favorite ? (tabletMode ? 12 : 10) : 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <TeamLogo
+              team={player.team}
+              size={tabletMode ? 15.625 : 14.0625}
+              fallback={<span style={{ fontSize: tabletMode ? 7 : 6, fontWeight: 700, color: "rgba(255,255,255,0.88)" }}>{displayTeam}</span>}
+            />
+          </div>
+        ) : null}
 
         {player ? (
           <>
-            <img
-              src={player.imageUrl || "/headshot-placeholder.svg"}
-              alt={player.name}
-              style={{
-                position: "absolute",
-                top: tabletMode ? 2 : 1,
-                right: favorite ? (tabletMode ? 17 : 15) : 2,
-                width: tabletMode ? 28 : 21,
-                height: tabletMode ? 28 : 21,
-                borderRadius: 999,
-                objectFit: "cover",
-                border: "1px solid rgba(255,255,255,0.18)",
-                background: "rgba(255,255,255,0.3)",
-              }}
-              onError={(event) => {
-                const img = event.currentTarget;
-                if (!img.src.includes("/headshot-placeholder.svg")) {
-                  img.src = "/headshot-placeholder.svg";
-                }
-              }}
-            />
             <div
               style={{
-                marginTop: tabletMode ? 5 : 4,
-                paddingRight: tabletMode ? 32 : 25,
-                fontSize: tabletMode ? 8 : 7,
+                marginTop: tabletMode ? 9 : 7,
+                paddingRight: favorite ? (tabletMode ? 34 : 29) : tabletMode ? 22 : 18,
+                fontSize: tabletMode ? 8.5 : 7.5,
                 lineHeight: 1,
                 fontWeight: 650,
                 color: "rgba(255,255,255,0.76)",
@@ -142,28 +192,52 @@ function MobileRankingsBoardCard(props: {
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 letterSpacing: -0.1,
+                display: "flex",
+                alignItems: "center",
               }}
             >
-              {player.position} - {player.team || "FA"}
+              <span>{player.position}</span>
+              <span style={{ opacity: 0.5 }}>-</span>
+              <span>{displayTeam}</span>
             </div>
 
             <div
               style={{
                 marginTop: tabletMode ? 4 : 3,
-                paddingRight: tabletMode ? 32 : 25,
-                fontSize: tabletMode ? 8 : 7,
-                lineHeight: 1.06,
+                paddingRight: favorite ? (tabletMode ? 18 : 16) : tabletMode ? 10 : 8,
+                fontSize: tabletMode ? 9 : 8,
+                lineHeight: tabletMode ? 1.02 : 1,
                 fontWeight: 700,
                 color: "rgba(255,255,255,0.97)",
-                display: "-webkit-box",
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: "vertical",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "flex-start",
+                gap: 0,
+                minHeight: tabletMode ? 16 : 14,
                 overflow: "hidden",
-                wordBreak: "break-word",
                 letterSpacing: -0.08,
               }}
             >
-              {player.name}
+              <span
+                style={{
+                  display: "block",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {nameLines[0]}
+              </span>
+              <span
+                style={{
+                  display: "block",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {nameLines[1]}
+              </span>
             </div>
           </>
         ) : (
@@ -347,12 +421,12 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
   const isDraft = boardTab === "Draft Board";
   const isRank = boardTab === "Rankings Board";
   const compactMobileMode = mobileMode && !tabletMode;
-  const boardCellWidth = mobileMode ? (tabletMode ? 108 : 82) : 140;
-  const boardCellMinWidth = mobileMode ? (tabletMode ? 108 : 82) : 140;
+  const boardCellWidth = mobileMode ? (tabletMode ? 91 : 72) : 140;
+  const boardCellMinWidth = mobileMode ? (tabletMode ? 91 : 72) : 140;
   const draftBoardCellMinHeight = mobileMode ? (tabletMode ? 64 : 48) : undefined;
-  const boardCellRadius = mobileMode ? (tabletMode ? 14 : 12) : 16;
-  const boardCellPadding = mobileMode ? (tabletMode ? 5 : 3) : 8;
-  const boardCellMarginRight = mobileMode ? (tabletMode ? 4 : 3) : 4;
+  const boardCellRadius = mobileMode ? 7 : 16;
+  const boardCellPadding = mobileMode ? (tabletMode ? 5 : 4) : 8;
+  const boardCellMarginRight = mobileMode ? (tabletMode ? 2 : 1) : 4;
   const showBoardCellImages = tabletMode || !mobileMode;
   const visibleTabs = availableTabs ?? ["Rankings Board", "Draft Board", "Cheatsheet", "Teams"];
   const showRankTab = visibleTabs.includes("Rankings Board");
@@ -859,7 +933,7 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                   const roundNumber = roundIndex + 1;
 
                   return (
-                    <div key={roundIndex} style={{ marginBottom: 3 }}>
+                    <div key={roundIndex} style={{ marginBottom: tabletMode ? -8 : -8 }}>
                       <div style={{ display: "flex" }}>
                         {Array.from({ length: teams }).map((_, teamIndex) => {
                           const pickIndex = reverse
@@ -870,12 +944,13 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                           const player = playerId ? playersById[playerId] : undefined;
                           const pickInRound = reverse ? teams - teamIndex : teamIndex + 1;
                           const baseLabel = `${roundNumber}.${String(pickInRound).padStart(2, "0")}`;
-                          const label = reverse ? `← ${baseLabel}` : `${baseLabel} →`;
+                          const directionArrow = reverse ? "←" : "→";
 
                           return (
                             <MobileRankingsBoardCard
                               key={playerId ?? `rankingslot:${pickIndex}`}
-                              label={label}
+                              pickLabel={baseLabel}
+                              directionArrow={directionArrow}
                               player={player}
                               favorite={playerId ? favoriteIds.has(playerId) : false}
                               drafted={playerId ? draftedIds.has(playerId) : false}
@@ -1039,14 +1114,14 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                     key={teamIndex}
                     style={{
                       boxSizing: "border-box",
-                      width: boardCellWidth,
-                      minWidth: boardCellMinWidth,
+                      width: mobileMode ? (tabletMode ? 91 : 72) : boardCellWidth,
+                      minWidth: mobileMode ? (tabletMode ? 91 : 72) : boardCellMinWidth,
                       marginRight: boardCellMarginRight,
-                      borderRadius: boardCellRadius,
+                      borderRadius: mobileMode ? 7 : boardCellRadius,
                       border: "1px solid rgba(255,255,255,0.10)",
                       outline: "1px solid rgba(0,0,0,0.18)",
                       background: "var(--panel-bg)",
-                      padding: boardCellPadding,
+                      padding: mobileMode ? (tabletMode ? 5 : 4) : boardCellPadding,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -1089,7 +1164,7 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                   const roundNumber = roundIndex + 1;
 
                   return (
-                    <div key={roundIndex} style={{ marginBottom: 2 }}>
+                    <div key={roundIndex} style={{ marginBottom: mobileMode ? -8 : 2 }}>
                       <div style={{ display: "flex" }}>
                         {Array.from({ length: teams }).map((_, teamIndex) => {
                           const pickIndex = reverse
@@ -1097,10 +1172,25 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                             : roundIndex * teams + teamIndex;
 
                           const pickInRound = reverse ? teams - teamIndex : teamIndex + 1;
-                          const label = `${roundNumber}.${String(pickInRound).padStart(2, "0")}`;
+                          const baseLabel = `${roundNumber}.${String(pickInRound).padStart(2, "0")}`;
+                          const label = reverse ? `← ${baseLabel}` : `${baseLabel} →`;
+                          const directionArrow = reverse ? "←" : "→";
 
                           const playerId = draftSlots[pickIndex];
                           if (!playerId) {
+                            if (mobileMode) {
+                              return (
+                                <MobileRankingsBoardCard
+                                  key={`draftslot:${pickIndex}`}
+                                  pickLabel={baseLabel}
+                                  directionArrow={directionArrow}
+                                  player={undefined}
+                                  bg={"var(--surface-0)"}
+                                  marginRight={boardCellMarginRight}
+                                  tabletMode={tabletMode}
+                                />
+                              );
+                            }
                             return (
                               <BoardCell
                                 key={`draftslot:${pickIndex}`}
@@ -1146,6 +1236,21 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
 
                           const player = playersById[playerId];
                           if (!player) {
+                            if (mobileMode) {
+                              return (
+                                <MobileRankingsBoardCard
+                                  key={`draftslot:${pickIndex}`}
+                                  pickLabel={baseLabel}
+                                  directionArrow={directionArrow}
+                                  player={undefined}
+                                  favorite={favoriteIds.has(playerId)}
+                                  drafted={draftedIds.has(playerId)}
+                                  bg={"var(--surface-0)"}
+                                  marginRight={boardCellMarginRight}
+                                  tabletMode={tabletMode}
+                                />
+                              );
+                            }
                             return (
                               <BoardCell
                                 key={`draftslot:${pickIndex}`}
@@ -1177,6 +1282,22 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                                 clampNameLines={2}
                               />
                               </BoardCell>
+                            );
+                          }
+
+                          if (mobileMode) {
+                            return (
+                              <MobileRankingsBoardCard
+                                key={`draftslot:${pickIndex}`}
+                                pickLabel={baseLabel}
+                                directionArrow={directionArrow}
+                                player={player}
+                                favorite={favoriteIds.has(playerId)}
+                                drafted={draftedIds.has(playerId)}
+                                bg={posColor(player.position)}
+                                marginRight={boardCellMarginRight}
+                                tabletMode={tabletMode}
+                              />
                             );
                           }
 
@@ -1217,7 +1338,7 @@ const [draftAssignQuery, setDraftAssignQuery] = React.useState<string>("");
                                 position={player.position}
                                 team={player.team}
                                 imageUrl={player.imageUrl}
-                                showDash={false}
+                                showDash
                                 showImage={showBoardCellImages}
                                 compact={compactMobileMode}
                                 clampNameLines={2}

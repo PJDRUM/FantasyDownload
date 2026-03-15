@@ -2,6 +2,9 @@ import React from "react";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, useDraggable, useDroppable } from "@dnd-kit/core";
 import type { Player, Position } from "../models/Player";
 import type { DraftStyle } from "./Board";
+import { CellContent } from "./BoardCell";
+import TeamLogo from "./TeamLogo";
+import { formatTeamAbbreviation } from "../utils/teamAbbreviation";
 import { useFitZoomViewport } from "./useFitZoomViewport";
 
 type StarterKey = "QB" | "RB" | "WR" | "TE" | "Flex" | "Superflex" | "K" | "DST";
@@ -22,6 +25,17 @@ const STARTER_LABELS: Record<StarterKey, string> = {
   Superflex: "Superflex",
   K: "Kicker",
   DST: "Defense",
+};
+
+const MOBILE_STARTER_LABELS: Record<StarterKey, string> = {
+  QB: "QB",
+  RB: "RB",
+  WR: "WR",
+  TE: "TE",
+  Flex: "Flex",
+  Superflex: "SF",
+  K: "K",
+  DST: "DEF",
 };
 
 const DEFAULT_STARTER_CONFIG: StarterConfig = {
@@ -85,12 +99,6 @@ function canFillSlot(slot: StarterKey, player: Player): boolean {
     default:
       return false;
   }
-}
-
-function abbreviatePlayerName(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length <= 1) return name;
-  return `${parts[0].slice(0, 1).toUpperCase()}. ${parts.slice(1).join(" ")}`.trim();
 }
 
 function buildVisibleStarterSlots(starterConfig: StarterConfig): SlotInstance[] {
@@ -183,14 +191,173 @@ function PlayerChip({
   posColor,
   draggableId,
   isDragging = false,
+  compactMode = false,
 }: {
   label: string;
   player?: Player;
   posColor: (pos: Position) => string;
   draggableId?: string;
   isDragging?: boolean;
+  compactMode?: boolean;
 }) {
   const bg = player ? posColor(player.position) : "var(--surface-0)";
+  const displayTeam = React.useMemo(() => formatTeamAbbreviation(player?.team, "FA"), [player?.team]);
+  const nameLines = React.useMemo(() => {
+    if (!player?.name) return ["", ""];
+    const parts = player.name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length <= 1) return [parts[0] ?? "", ""];
+    const suffixes = new Set(["jr", "jr.", "sr", "sr.", "ii", "iii", "iv", "v"]);
+    const lastPart = parts[parts.length - 1] ?? "";
+    if (parts.length >= 3 && suffixes.has(lastPart.toLowerCase())) {
+      return [parts.slice(0, -2).join(" "), parts.slice(-2).join(" ")];
+    }
+    return [parts.slice(0, -1).join(" "), lastPart];
+  }, [player?.name]);
+
+  if (compactMode) {
+    return (
+      <div
+        style={{
+          boxSizing: "border-box",
+          width: 72,
+          minWidth: 72,
+          height: 48,
+          padding: 4,
+          position: "relative",
+          overflow: "hidden",
+          userSelect: "none",
+          opacity: isDragging ? 0.82 : 1,
+        }}
+      >
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: 5,
+            right: 0,
+            bottom: 5,
+            left: 0,
+            borderRadius: 7,
+            border: "1px solid rgba(255,255,255,0.12)",
+            outline: "1px solid rgba(0,0,0,0.18)",
+            background: bg,
+            pointerEvents: "none",
+          }}
+        />
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: 5,
+            right: 0,
+            bottom: 5,
+            left: 0,
+            borderRadius: 7,
+            background: "rgba(0,0,0,0.1)",
+            pointerEvents: "none",
+          }}
+        />
+        <div style={{ position: "relative", zIndex: 1, height: "100%" }}>
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              right: 1,
+              fontSize: 6,
+              lineHeight: 1,
+              fontWeight: 700,
+              color: "rgba(255,255,255,0.84)",
+              letterSpacing: -0.1,
+              textAlign: "right",
+              maxWidth: 30,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {label}
+          </div>
+
+          {player?.team ? (
+            <div
+              style={{
+                position: "absolute",
+                top: 8,
+                right: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <TeamLogo
+                team={player.team}
+                size={14.0625}
+                fallback={<span style={{ fontSize: 6, fontWeight: 700, color: "rgba(255,255,255,0.88)" }}>{displayTeam}</span>}
+              />
+            </div>
+          ) : null}
+
+          {player ? (
+            <>
+              <div
+                style={{
+                  marginTop: 7,
+                  paddingRight: 18,
+                  fontSize: 7.5,
+                  lineHeight: 1,
+                  fontWeight: 650,
+                  color: "rgba(255,255,255,0.76)",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  letterSpacing: -0.1,
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                <span>{player.position}</span>
+                <span style={{ opacity: 0.5 }}>-</span>
+                <span>{displayTeam}</span>
+              </div>
+
+              <div
+                style={{
+                  marginTop: 4,
+                  paddingRight: 8,
+                  fontSize: 8,
+                  lineHeight: 1,
+                  fontWeight: 700,
+                  color: "rgba(255,255,255,0.97)",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "flex-start",
+                  gap: 0,
+                  minHeight: 14,
+                  overflow: "hidden",
+                  letterSpacing: -0.08,
+                }}
+              >
+                <span style={{ display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{nameLines[0]}</span>
+                <span style={{ display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{nameLines[1]}</span>
+              </div>
+            </>
+          ) : (
+            <div
+              style={{
+                marginTop: 7,
+                fontSize: 18,
+                lineHeight: 1,
+                fontWeight: 700,
+                color: "rgba(255,255,255,0.78)",
+              }}
+            >
+              —
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -198,110 +365,55 @@ function PlayerChip({
         boxSizing: "border-box",
         width: 140,
         minWidth: 140,
-        borderRadius: 16,
-        border: "1px solid rgba(255,255,255,0.10)",
-        outline: "1px solid rgba(0,0,0,0.18)",
-        background: bg,
         padding: 8,
         position: "relative",
         userSelect: "none",
         boxShadow: isDragging ? "0 18px 40px rgba(0,0,0,0.30)" : "0 10px 22px rgba(0,0,0,0.14)",
         overflow: "hidden",
         opacity: isDragging ? 0.96 : 1,
+        minHeight: 88,
       }}
     >
       <div
         aria-hidden
         style={{
           position: "absolute",
-          inset: 0,
-          borderRadius: 16,
-          background: "rgba(0,0,0,0.14)",
+          top: 6,
+          right: 0,
+          bottom: 6,
+          left: 0,
+          borderRadius: 12,
+          border: "1px solid rgba(255,255,255,0.12)",
+          outline: "1px solid rgba(0,0,0,0.18)",
+          background: bg,
           pointerEvents: "none",
           zIndex: 0,
         }}
       />
-      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={{ fontWeight: 900, fontSize: 12, opacity: 0.85, textShadow: "0 1px 2px rgba(0,0,0,0.65)" }}>
-          {label}
-        </div>
-
-        {player ? (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              cursor: draggableId ? "grab" : "default",
-              touchAction: draggableId ? "none" : "auto",
-            }}
-          >
-            <img
-              src={player.imageUrl || "/headshot-placeholder.svg"}
-              alt={player.name}
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 999,
-                objectFit: "cover",
-                border: "1px solid rgba(0,0,0,0.15)",
-                background: "rgba(255,255,255,0.35)",
-                flexShrink: 0,
-              }}
-              onError={(e) => {
-                const img = e.currentTarget as HTMLImageElement;
-                if (!img.src.includes("/headshot-placeholder.svg")) {
-                  img.src = "/headshot-placeholder.svg";
-                }
-              }}
-            />
-            <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-              <div
-                style={{
-                  fontWeight: 900,
-                  fontSize: 14,
-                  lineHeight: 1.1,
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  textShadow: "0 1px 2px rgba(0,0,0,0.65)",
-                }}
-                title={player.name}
-              >
-                {abbreviatePlayerName(player.name)}
-              </div>
-              <div
-                style={{
-                  fontWeight: 800,
-                  fontSize: 12,
-                  opacity: 0.85,
-                  textShadow: "0 1px 2px rgba(0,0,0,0.65)",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
-                title={player.team ?? ""}
-              >
-                {player.position}
-                {player.team ? ` — ${player.team}` : ""}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div
-            style={{
-              minHeight: 34,
-              display: "flex",
-              alignItems: "center",
-              fontWeight: 800,
-              fontSize: 12,
-              opacity: 0.65,
-              textShadow: "0 1px 2px rgba(0,0,0,0.45)",
-            }}
-          >
-            Empty
-          </div>
-        )}
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          top: 6,
+          right: 0,
+          bottom: 6,
+          left: 0,
+          borderRadius: 12,
+          background: "rgba(0,0,0,0.1)",
+          pointerEvents: "none",
+          zIndex: 0,
+        }}
+      />
+      <div style={{ position: "relative", zIndex: 1 }}>
+        <CellContent
+          label={label}
+          name={player?.name ?? "—"}
+          position={player?.position ?? " "}
+          team={player?.team}
+          imageUrl={player?.imageUrl}
+          showDash={Boolean(player)}
+          showImage
+        />
       </div>
     </div>
   );
@@ -312,11 +424,13 @@ function DraggableTeamCard({
   label,
   player,
   posColor,
+  compactMode = false,
 }: {
   teamIndex: number;
   label: string;
   player?: Player;
   posColor: (pos: Position) => string;
+  compactMode?: boolean;
 }) {
   const dragId = player ? buildDragId(teamIndex, player.id) : undefined;
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -335,7 +449,7 @@ function DraggableTeamCard({
         opacity: isDragging ? 0.35 : 1,
       }}
     >
-      <PlayerChip label={label} player={player} posColor={posColor} draggableId={dragId} />
+      <PlayerChip label={label} player={player} posColor={posColor} draggableId={dragId} compactMode={compactMode} />
     </div>
   );
 }
@@ -346,12 +460,14 @@ function TeamStarterSlot({
   label,
   player,
   posColor,
+  compactMode = false,
 }: {
   teamIndex: number;
   slotId: string;
   label: string;
   player?: Player;
   posColor: (pos: Position) => string;
+  compactMode?: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: buildSlotDropId(teamIndex, slotId) });
 
@@ -359,12 +475,12 @@ function TeamStarterSlot({
     <div
       ref={setNodeRef}
       style={{
-        borderRadius: 18,
+        borderRadius: compactMode ? 7 : 18,
         boxShadow: isOver ? "0 0 0 2px rgba(255,255,255,0.22)" : undefined,
         background: isOver ? "rgba(255,255,255,0.06)" : undefined,
       }}
     >
-      <DraggableTeamCard teamIndex={teamIndex} label={label} player={player} posColor={posColor} />
+      <DraggableTeamCard teamIndex={teamIndex} label={label} player={player} posColor={posColor} compactMode={compactMode} />
     </div>
   );
 }
@@ -373,10 +489,12 @@ function TeamBenchArea({
   teamIndex,
   bench,
   posColor,
+  compactMode = false,
 }: {
   teamIndex: number;
   bench: Player[];
   posColor: (pos: Position) => string;
+  compactMode?: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: buildBenchDropId(teamIndex) });
 
@@ -384,24 +502,25 @@ function TeamBenchArea({
     <div
       ref={setNodeRef}
       style={{
-        borderRadius: 18,
-        padding: 2,
+        borderRadius: compactMode ? 7 : 18,
+        padding: compactMode ? 0 : 2,
         boxShadow: isOver ? "0 0 0 2px rgba(255,255,255,0.22)" : undefined,
         background: isOver ? "rgba(255,255,255,0.06)" : undefined,
       }}
     >
-      <div style={{ marginBottom: 4 }}>
+      <div style={{ marginBottom: compactMode ? -8 : 4 }}>
         <DraggableTeamCard
           teamIndex={teamIndex}
           label={bench.length ? `Bench${bench.length > 1 ? " 1" : ""}` : "Bench"}
           player={bench[0]}
           posColor={posColor}
+          compactMode={compactMode}
         />
       </div>
 
       {bench.slice(1).map((player, benchIndex) => (
-        <div key={`${teamIndex}-bench-${player.id}-${benchIndex}`} style={{ marginBottom: 4 }}>
-          <DraggableTeamCard teamIndex={teamIndex} label={`Bench ${benchIndex + 2}`} player={player} posColor={posColor} />
+        <div key={`${teamIndex}-bench-${player.id}-${benchIndex}`} style={{ marginBottom: compactMode ? -8 : 4 }}>
+          <DraggableTeamCard teamIndex={teamIndex} label={`Bench ${benchIndex + 2}`} player={player} posColor={posColor} compactMode={compactMode} />
         </div>
       ))}
     </div>
@@ -422,7 +541,7 @@ export default function TeamsBoard(props: {
   const [starterConfig, setStarterConfig] = React.useState<StarterConfig>(DEFAULT_STARTER_CONFIG);
   const [teamOverrides, setTeamOverrides] = React.useState<TeamOverridesState>({});
   const [activeDrag, setActiveDrag] = React.useState<{ teamIndex: number; player: Player } | null>(null);
-  const { viewportRef, contentRef, contentSize, totalScale, touchHandlers } = useFitZoomViewport(fitToViewport);
+  const { viewportRef, contentRef, touchHandlers } = useFitZoomViewport(false);
 
   const visibleStarterSlots = React.useMemo(() => buildVisibleStarterSlots(starterConfig), [starterConfig]);
   const nextPickingTeamIndex = React.useMemo(
@@ -484,13 +603,14 @@ export default function TeamsBoard(props: {
   );
 
   const selectStyle: React.CSSProperties = {
-    borderRadius: 10,
+    borderRadius: fitToViewport ? 8 : 10,
     border: "1px solid var(--border-0)",
     background: "var(--panel-bg-2)",
     color: "var(--text-0)",
-    padding: "6px 10px",
+    padding: fitToViewport ? "2px 4px" : "6px 10px",
     outline: "none",
     fontWeight: 750,
+    fontSize: fitToViewport ? 10 : 14,
   };
 
   const handleDragStart = React.useCallback(
@@ -582,88 +702,83 @@ export default function TeamsBoard(props: {
 
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div
-        ref={viewportRef}
-        {...touchHandlers}
-        style={{
-          width: fitToViewport ? "100%" : "fit-content",
-          maxWidth: "100%",
-          overflow: fitToViewport ? "auto" : "visible",
-          touchAction: fitToViewport ? "pan-x pan-y" : undefined,
-        }}
-      >
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%" }}>
         <div
-          style={
-            fitToViewport
-              ? {
-                  width: contentSize.width ? contentSize.width * totalScale : "100%",
-                  height: contentSize.height ? contentSize.height * totalScale : "auto",
+          style={{
+            display: fitToViewport ? "grid" : "flex",
+            gridTemplateColumns: fitToViewport ? "repeat(8, minmax(0, 1fr))" : undefined,
+            flexWrap: fitToViewport ? undefined : "wrap",
+            gap: fitToViewport ? 4 : 10,
+            padding: fitToViewport ? 6 : 12,
+            borderRadius: fitToViewport ? 14 : 16,
+            border: fitToViewport ? "none" : "1px solid rgba(255,255,255,0.10)",
+            outline: fitToViewport ? "none" : "1px solid rgba(0,0,0,0.18)",
+            background: fitToViewport ? "transparent" : "var(--panel-bg)",
+            width: "100%",
+            boxSizing: "border-box",
+          }}
+        >
+          {STARTER_ORDER.map((slot) => (
+            <label
+              key={slot}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: fitToViewport ? "center" : undefined,
+                gap: fitToViewport ? 4 : 8,
+                padding: fitToViewport ? "2px 4px" : "6px 10px",
+                borderRadius: fitToViewport ? 8 : 12,
+                border: "1px solid rgba(255,255,255,0.08)",
+                background: "rgba(255,255,255,0.03)",
+                fontSize: fitToViewport ? 9 : 12,
+                fontWeight: 800,
+                color: "var(--text-0)",
+                minWidth: 0,
+                flexDirection: fitToViewport ? "column" : "row",
+              }}
+            >
+              <span style={{ whiteSpace: "nowrap", overflow: fitToViewport ? "hidden" : undefined, textOverflow: fitToViewport ? "ellipsis" : undefined, lineHeight: 1 }}>
+                {fitToViewport ? MOBILE_STARTER_LABELS[slot] : STARTER_LABELS[slot]}
+              </span>
+              <select
+                value={starterConfig[slot]}
+                onChange={(e) =>
+                  setStarterConfig((prev) => ({
+                    ...prev,
+                    [slot]: Number(e.target.value),
+                  }))
                 }
-              : undefined
-          }
+                style={selectStyle}
+                aria-label={`${STARTER_LABELS[slot]} starters`}
+              >
+                {Array.from({ length: 7 }, (_, idx) => idx).map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
+        </div>
+
+        <div
+          ref={viewportRef}
+          {...touchHandlers}
+          style={{
+            width: "100%",
+            maxWidth: "100%",
+            overflowX: "auto",
+            overflowY: "visible",
+            touchAction: fitToViewport ? "pan-x pan-y" : undefined,
+          }}
         >
           <div
             ref={contentRef}
             style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 12,
               width: "fit-content",
-              transform: fitToViewport ? `scale(${totalScale})` : undefined,
-              transformOrigin: fitToViewport ? "top left" : undefined,
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 10,
-                padding: 12,
-                borderRadius: 16,
-                border: "1px solid rgba(255,255,255,0.10)",
-                outline: "1px solid rgba(0,0,0,0.18)",
-                background: "var(--panel-bg)",
-              }}
-            >
-              {STARTER_ORDER.map((slot) => (
-                <label
-                  key={slot}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "6px 10px",
-                    borderRadius: 12,
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    background: "rgba(255,255,255,0.03)",
-                    fontSize: 12,
-                    fontWeight: 800,
-                    color: "var(--text-0)",
-                  }}
-                >
-                  <span>{STARTER_LABELS[slot]}</span>
-                  <select
-                    value={starterConfig[slot]}
-                    onChange={(e) =>
-                      setStarterConfig((prev) => ({
-                        ...prev,
-                        [slot]: Number(e.target.value),
-                      }))
-                    }
-                    style={selectStyle}
-                    aria-label={`${STARTER_LABELS[slot]} starters`}
-                  >
-                    {Array.from({ length: 7 }, (_, idx) => idx).map((value) => (
-                      <option key={value} value={value}>
-                        {value}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ))}
-            </div>
-
-            <div style={{ display: "flex", overflowX: "auto", paddingTop: 4, paddingRight: 4, paddingBottom: 4, paddingLeft: 4 }}>
+            <div style={{ display: "flex", overflowX: "visible", paddingTop: 4, paddingRight: 4, paddingBottom: 4, paddingLeft: 4 }}>
               {Array.from({ length: teams }).map((_, teamIndex) => {
             const teamName = teamNames[teamIndex]?.trim() || `Team ${teamIndex + 1}`;
             const roster = teamRosters[teamIndex];
@@ -677,27 +792,27 @@ export default function TeamsBoard(props: {
                 style={{
                   display: "flex",
                   flexDirection: "column",
-                  marginRight: 4,
-                  borderRadius: 18,
-                  padding: 4,
+                  marginRight: fitToViewport ? 1 : 4,
+                  borderRadius: fitToViewport ? 7 : 18,
+                  padding: fitToViewport ? 0 : 4,
                   background: isNextPickingTeam ? "rgba(255, 215, 0, 0.12)" : undefined,
                   boxShadow: isNextPickingTeam ? "0 0 0 2px rgba(255, 215, 0, 0.38)" : undefined,
                 }}
               >
                 <div
                   style={{
-                    width: 140,
-                    minWidth: 140,
-                    minHeight: 18,
-                    marginRight: 4,
-                    marginBottom: 4,
+                    width: fitToViewport ? 72 : 140,
+                    minWidth: fitToViewport ? 72 : 140,
+                    minHeight: fitToViewport ? 14 : 18,
+                    marginRight: fitToViewport ? 1 : 4,
+                    marginBottom: fitToViewport ? 2 : 4,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: 6,
-                    fontSize: 11,
+                    gap: fitToViewport ? 2 : 6,
+                    fontSize: fitToViewport ? 6 : 11,
                     fontWeight: 900,
-                    letterSpacing: 0.6,
+                    letterSpacing: fitToViewport ? 0.2 : 0.6,
                     textTransform: "uppercase",
                     color: "rgba(255, 235, 140, 0.98)",
                     whiteSpace: "nowrap",
@@ -712,11 +827,12 @@ export default function TeamsBoard(props: {
                 <div
                   style={{
                     boxSizing: "border-box",
-                    width: 140,
-                    minWidth: 140,
-                    marginRight: 4,
-                    marginBottom: 4,
-                    borderRadius: 16,
+                    width: fitToViewport ? 72 : 140,
+                    minWidth: fitToViewport ? 72 : 140,
+                    minHeight: fitToViewport ? 28 : undefined,
+                    marginRight: fitToViewport ? 1 : 4,
+                    marginBottom: fitToViewport ? 2 : 4,
+                    borderRadius: fitToViewport ? 7 : 16,
                     border: isNextPickingTeam
                       ? "1px solid rgba(255,215,0,0.55)"
                       : "1px solid rgba(255,255,255,0.10)",
@@ -724,23 +840,22 @@ export default function TeamsBoard(props: {
                       ? "1px solid rgba(255,215,0,0.32)"
                       : "1px solid rgba(0,0,0,0.18)",
                     background: isNextPickingTeam ? "rgba(255, 215, 0, 0.18)" : "var(--panel-bg)",
-                    padding: 8,
+                    padding: fitToViewport ? 0 : 8,
                     display: "flex",
-                    flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
-                    textAlign: "center",
-                    gap: 6,
                   }}
                 >
                   <div
                     style={{
                       width: "100%",
-                      fontSize: 15,
-                      fontWeight: 900,
+                      fontSize: fitToViewport ? 9 : 15,
+                      fontWeight: fitToViewport ? 800 : 900,
                       color: "var(--text-0)",
                       lineHeight: 1.1,
                       wordBreak: "break-word",
+                      textAlign: "center",
+                      padding: 0,
                     }}
                     title={teamName}
                   >
@@ -749,31 +864,32 @@ export default function TeamsBoard(props: {
                 </div>
 
                 {visibleStarterSlots.map((slot) => (
-                  <div key={`${teamIndex}-${slot.id}`} style={{ marginBottom: 4 }}>
+                  <div key={`${teamIndex}-${slot.id}`} style={{ marginBottom: fitToViewport ? -8 : 4 }}>
                     <TeamStarterSlot
                       teamIndex={teamIndex}
                       slotId={slot.id}
                       label={slot.label}
                       player={roster?.slotAssignments[slot.id]}
                       posColor={posColor}
+                      compactMode={fitToViewport}
                     />
                   </div>
                 ))}
 
-                <TeamBenchArea teamIndex={teamIndex} bench={roster?.bench ?? []} posColor={posColor} />
+                <TeamBenchArea teamIndex={teamIndex} bench={roster?.bench ?? []} posColor={posColor} compactMode={fitToViewport} />
               </div>
             );
               })}
             </div>
           </div>
         </div>
-
-        <DragOverlay>
-          {activeDrag ? (
-            <PlayerChip label={activeDrag.player.position} player={activeDrag.player} posColor={posColor} isDragging />
-          ) : null}
-        </DragOverlay>
       </div>
+
+      <DragOverlay>
+        {activeDrag ? (
+          <PlayerChip label={activeDrag.player.position} player={activeDrag.player} posColor={posColor} isDragging compactMode={fitToViewport} />
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 }
