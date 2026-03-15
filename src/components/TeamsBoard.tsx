@@ -542,6 +542,7 @@ export default function TeamsBoard(props: {
   const [teamOverrides, setTeamOverrides] = React.useState<TeamOverridesState>({});
   const [activeDrag, setActiveDrag] = React.useState<{ teamIndex: number; player: Player } | null>(null);
   const { viewportRef, contentRef, touchHandlers } = useFitZoomViewport(false);
+  const [desktopScale, setDesktopScale] = React.useState(1);
 
   const visibleStarterSlots = React.useMemo(() => buildVisibleStarterSlots(starterConfig), [starterConfig]);
   const nextPickingTeamIndex = React.useMemo(
@@ -700,6 +701,37 @@ export default function TeamsBoard(props: {
     [playersById, teamRosters, visibleStarterSlots]
   );
 
+  React.useLayoutEffect(() => {
+    if (fitToViewport) {
+      setDesktopScale(1);
+      return;
+    }
+
+    const viewport = viewportRef.current;
+    const content = contentRef.current;
+    if (!viewport || !content) return;
+
+    const update = () => {
+      const viewportRect = viewport.getBoundingClientRect();
+      const contentRect = content.getBoundingClientRect();
+      if (viewportRect.width <= 0 || contentRect.width <= 0) return;
+
+      const naturalWidth = contentRect.width / desktopScale;
+      if (naturalWidth <= 0) return;
+
+      const nextScale = Math.max(0.68, Math.min(1.28, (viewportRect.width - 8) / naturalWidth));
+      setDesktopScale((prev) => (Math.abs(prev - nextScale) < 0.01 ? prev : nextScale));
+    };
+
+    update();
+
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => update());
+    ro.observe(viewport);
+    ro.observe(content);
+    return () => ro.disconnect();
+  }, [fitToViewport, teams, draftSlots, starterConfig, desktopScale, contentRef, viewportRef]);
+
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%" }}>
@@ -776,6 +808,7 @@ export default function TeamsBoard(props: {
             ref={contentRef}
             style={{
               width: "fit-content",
+              zoom: fitToViewport ? undefined : desktopScale,
             }}
           >
             <div style={{ display: "flex", overflowX: "visible", paddingTop: 4, paddingRight: 4, paddingBottom: 4, paddingLeft: 4 }}>

@@ -91,6 +91,13 @@ function shouldUseTouchLayout() {
   return (coarsePointer || standaloneDisplay || legacyStandalone) && touchCapable && screenMin <= 1200 && screenMax <= 1600;
 }
 
+function getDesktopUiScale() {
+  if (typeof window === "undefined") return 1;
+  const widthScale = window.innerWidth / 1500;
+  const heightScale = (window.innerHeight - 56) / 860;
+  return Math.max(0.82, Math.min(1.22, Math.min(widthScale, heightScale)));
+}
+
 export default function App() {
   const [activeView, setActiveView] = useState<AppView>("draftCompanion");
   const [showDraftSyncModal, setShowDraftSyncModal] = useState(false);
@@ -98,6 +105,7 @@ export default function App() {
   const [isRefreshingDraftSync, setIsRefreshingDraftSync] = useState(false);
   const [modeNavLeftPx, setModeNavLeftPx] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState(() => shouldUseTouchLayout());
+  const [desktopUiScale, setDesktopUiScale] = useState(() => (shouldUseTouchLayout() ? 1 : getDesktopUiScale()));
   const [teams, setTeams] = useState(12);
   const [teamNames, setTeamNames] = useState<string[]>(
     Array.from({ length: 12 }, (_, i) => `Team ${i + 1}`)
@@ -112,7 +120,11 @@ export default function App() {
     const compactMedia = window.matchMedia("(max-width: 1100px)");
     const standaloneMedia = window.matchMedia("(display-mode: standalone)");
     const pointerMedia = window.matchMedia("(pointer: coarse)");
-    const update = () => setIsMobile(shouldUseTouchLayout());
+    const update = () => {
+      const nextMobile = shouldUseTouchLayout();
+      setIsMobile(nextMobile);
+      setDesktopUiScale(nextMobile ? 1 : getDesktopUiScale());
+    };
     update();
     compactMedia.addEventListener("change", update);
     standaloneMedia.addEventListener("change", update);
@@ -1229,6 +1241,7 @@ export default function App() {
               onOpenCompareRankings={() => setActiveView("compareRankings")}
               modeNavLeftPx={modeNavLeftPx}
               showModeNav={!isMobile}
+              uiScale={desktopUiScale}
             />
           </div>
         )}
@@ -1315,13 +1328,15 @@ export default function App() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "520px max-content",
+              gridTemplateColumns: "clamp(380px, 24vw, 500px) minmax(0, 1fr)",
               gridTemplateRows: "1fr",
               columnGap: 12,
               rowGap: 12,
               flex: 1,
               minHeight: 0,
-              justifyContent: "center",
+              width: "100%",
+              justifyContent: "stretch",
+              alignItems: "stretch",
             }}
           >
             <div
@@ -1337,6 +1352,7 @@ export default function App() {
               }}
             >
               <RankingsList
+                uiScale={desktopUiScale}
                 rankingsListKey={rankingsListKey}
                 setRankingsListKey={setRankingsListKey}
                 rankingIds={rankingIds}
@@ -1377,6 +1393,7 @@ export default function App() {
             >
               <div className="boardScroll">
                 <Board
+                  uiScale={desktopUiScale}
                   allowRankingsReorder={rankingsListKey === "Rankings"}
                   favoriteIds={favoriteIds}
                   boardTab={boardTab}

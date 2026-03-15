@@ -511,6 +511,7 @@ export default function Board(props: {
   onOpenDraftSync?: () => void;
   onRefreshDraftSync?: () => void;
   isRefreshingDraftSync?: boolean;
+  uiScale?: number;
 }) {
   const {
     favoriteIds,
@@ -551,6 +552,7 @@ export default function Board(props: {
     onOpenDraftSync,
     onRefreshDraftSync,
     isRefreshingDraftSync = false,
+    uiScale = 1,
   } = props;
 
   // Cheatsheet should be driven purely by the Rankings list (order + tiers) so it looks identical
@@ -713,6 +715,11 @@ const [plannerAssignQuery, setPlannerAssignQuery] = React.useState<string>("");
   const [activePlannerPlayerId, setActivePlannerPlayerId] = React.useState<string | null>(null);
   const plannerRoundByIdRef = React.useRef<Record<string, number>>({});
   const plannerOrderedIdsRef = React.useRef<string[]>([]);
+  const mainScrollRef = React.useRef<HTMLDivElement | null>(null);
+  const bottomScrollbarRef = React.useRef<HTMLDivElement | null>(null);
+  const syncingScrollRef = React.useRef<"main" | "bottom" | null>(null);
+  const [bottomScrollbarWidth, setBottomScrollbarWidth] = React.useState(0);
+  const [showBottomScrollbar, setShowBottomScrollbar] = React.useState(false);
 
   React.useEffect(() => {
     plannerRoundByIdRef.current = plannerRoundById;
@@ -894,7 +901,9 @@ const [plannerAssignQuery, setPlannerAssignQuery] = React.useState<string>("");
 
   // Measure the non-cheatsheet board (Rankings/Draft) so Cheatsheet can reserve the same space.
   const tableSizeRef = React.useRef<HTMLDivElement | null>(null);
+  const boardViewportRef = React.useRef<HTMLDivElement | null>(null);
   const [tableSize, setTableSize] = React.useState<{ width: number; height: number } | null>(null);
+  const [desktopBoardScale, setDesktopBoardScale] = React.useState(1);
 
   React.useLayoutEffect(() => {
     const el = tableSizeRef.current;
@@ -928,6 +937,90 @@ const [plannerAssignQuery, setPlannerAssignQuery] = React.useState<string>("");
     rankingIds,
     draftSlots,
   ]);
+
+  React.useLayoutEffect(() => {
+    if (mobileMode || (!isRank && !isDraft)) {
+      setDesktopBoardScale(1);
+      return;
+    }
+
+    const viewport = boardViewportRef.current;
+    const content = tableSizeRef.current;
+    if (!viewport || !content) return;
+
+    const update = () => {
+      const viewportRect = viewport.getBoundingClientRect();
+      const contentRect = content.getBoundingClientRect();
+
+      if (viewportRect.width <= 0 || contentRect.width <= 0) return;
+
+      const naturalWidth = contentRect.width / desktopBoardScale;
+      if (naturalWidth <= 0) return;
+
+      const nextScale = Math.max(0.68, Math.min(1.35, (viewportRect.width - 4) / naturalWidth));
+
+      setDesktopBoardScale((prev) => (Math.abs(prev - nextScale) < 0.01 ? prev : nextScale));
+    };
+
+    update();
+
+    if (typeof ResizeObserver === "undefined") return;
+
+    const ro = new ResizeObserver(() => update());
+    ro.observe(viewport);
+    ro.observe(content);
+    return () => ro.disconnect();
+  }, [mobileMode, isRank, isDraft, teams, rounds, draftStyle, rankingIds, draftSlots, desktopBoardScale]);
+
+  React.useLayoutEffect(() => {
+    if (mobileMode) {
+      setShowBottomScrollbar(false);
+      setBottomScrollbarWidth(0);
+      return;
+    }
+
+    const scroller = mainScrollRef.current;
+    if (!scroller) return;
+
+    const update = () => {
+      const hasOverflow = scroller.scrollWidth > scroller.clientWidth + 2;
+      setShowBottomScrollbar(hasOverflow);
+      setBottomScrollbarWidth(scroller.scrollWidth);
+    };
+
+    update();
+
+    if (typeof ResizeObserver === "undefined") return;
+
+    const ro = new ResizeObserver(() => update());
+    ro.observe(scroller);
+    if (tableSizeRef.current) ro.observe(tableSizeRef.current);
+    return () => ro.disconnect();
+  }, [mobileMode, boardTab, teams, rounds, draftStyle, rankingIds, draftSlots, tableSize]);
+
+  const syncFromMainScroll = React.useCallback(() => {
+    const scroller = mainScrollRef.current;
+    const bottomBar = bottomScrollbarRef.current;
+    if (!scroller || !bottomBar) return;
+    if (syncingScrollRef.current === "bottom") return;
+    syncingScrollRef.current = "main";
+    bottomBar.scrollLeft = scroller.scrollLeft;
+    requestAnimationFrame(() => {
+      if (syncingScrollRef.current === "main") syncingScrollRef.current = null;
+    });
+  }, []);
+
+  const syncFromBottomScroll = React.useCallback(() => {
+    const scroller = mainScrollRef.current;
+    const bottomBar = bottomScrollbarRef.current;
+    if (!scroller || !bottomBar) return;
+    if (syncingScrollRef.current === "main") return;
+    syncingScrollRef.current = "bottom";
+    scroller.scrollLeft = bottomBar.scrollLeft;
+    requestAnimationFrame(() => {
+      if (syncingScrollRef.current === "bottom") syncingScrollRef.current = null;
+    });
+  }, []);
 
 
 
@@ -1065,10 +1158,33 @@ const [plannerAssignQuery, setPlannerAssignQuery] = React.useState<string>("");
         .tabBtn:active {
           transform: scale(0.98);
         }
+        .boardBottomScrollbar {
+          overflow-x: auto;
+          overflow-y: hidden;
+          height: 18px;
+          padding-top: 4px;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255,255,255,0.48) rgba(255,255,255,0.08);
+        }
+        .boardBottomScrollbar::-webkit-scrollbar {
+          height: 12px;
+        }
+        .boardBottomScrollbar::-webkit-scrollbar-track {
+          background: rgba(255,255,255,0.08);
+          border-radius: 999px;
+        }
+        .boardBottomScrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255,255,255,0.48);
+          border-radius: 999px;
+          border: 2px solid transparent;
+          background-clip: padding-box;
+        }
       `}</style>
       <div
+        ref={mainScrollRef}
+        onScroll={syncFromMainScroll}
         style={{
-          overflowY: "auto",
+          overflow: "auto",
           height: "100%",
           scrollbarWidth: "none",
           msOverflowStyle: "none",
@@ -1083,6 +1199,7 @@ const [plannerAssignQuery, setPlannerAssignQuery] = React.useState<string>("");
               alignItems: "center",
               marginBottom: 8,
               gap: 12,
+              zoom: !mobileMode ? uiScale : undefined,
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1471,8 +1588,15 @@ const [plannerAssignQuery, setPlannerAssignQuery] = React.useState<string>("");
           </div>
         )}
 
+        <div ref={boardViewportRef} style={{ width: "100%", minWidth: 0 }}>
         {boardTab === "Rankings Board" ? (
-          <div ref={tableSizeRef}>
+          <div
+            ref={tableSizeRef}
+            style={{
+              width: "fit-content",
+              zoom: !mobileMode ? desktopBoardScale : undefined,
+            }}
+          >
             {mobileMode ? (
               <>
                 {Array.from({ length: rounds }).map((_, roundIndex) => {
@@ -1671,10 +1795,11 @@ const [plannerAssignQuery, setPlannerAssignQuery] = React.useState<string>("");
           </div>
         ) : boardTab === "Teams" ? (
           <div
+            ref={tableSizeRef}
             style={{
+              width: mobileMode ? "100%" : "fit-content",
               minWidth: mobileMode ? 0 : tableSize?.width,
               minHeight: tableSize?.height,
-              width: mobileMode ? "100%" : undefined,
             }}
           >
             <TeamsBoard
@@ -1689,7 +1814,13 @@ const [plannerAssignQuery, setPlannerAssignQuery] = React.useState<string>("");
             />
           </div>
         ) : (
-          <div ref={tableSizeRef}>
+          <div
+            ref={tableSizeRef}
+            style={{
+              width: "fit-content",
+              zoom: !mobileMode ? desktopBoardScale : undefined,
+            }}
+          >
             <DndContext
               sensors={allowDraftBoardReorder ? sensors : undefined}
               onDragEnd={allowDraftBoardReorder ? onDraftBoardDragEnd : undefined}
@@ -1939,6 +2070,16 @@ const [plannerAssignQuery, setPlannerAssignQuery] = React.useState<string>("");
             </DndContext>
           </div>
         )}
+        </div>
+      {!mobileMode && showBottomScrollbar ? (
+        <div
+          ref={bottomScrollbarRef}
+          className="boardBottomScrollbar"
+          onScroll={syncFromBottomScroll}
+        >
+          <div style={{ width: bottomScrollbarWidth, height: 1 }} />
+        </div>
+      ) : null}
 
 
 {/* Draft-board: Assign Player menu */}

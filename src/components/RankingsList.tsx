@@ -97,6 +97,7 @@ export default function RankingsList(props: {
   onChangeConsensusFormat?: (format: ScoringFormat) => void;
 
   onSetAsRankings?: () => void;
+  uiScale?: number;
 }) {
   const {
     rankingsListKey,
@@ -122,11 +123,40 @@ export default function RankingsList(props: {
     consensusFormat = "halfPpr",
     onChangeConsensusFormat,
     onSetAsRankings,
+    uiScale = 1,
   } = props;
 
   const [profilePlayerId, setProfilePlayerId] = useState<string | null>(null);
   const [hideDraftedPlayers, setHideDraftedPlayers] = useState(false);
   const [setAsRankingsFeedback, setSetAsRankingsFeedback] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [desktopListScale, setDesktopListScale] = useState(1);
+
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root || typeof window === "undefined") return;
+
+    const update = () => {
+      const isDesktop = window.innerWidth > 1100;
+      if (!isDesktop) {
+        setDesktopListScale(1);
+        return;
+      }
+
+      const width = root.getBoundingClientRect().width;
+      if (width <= 0) return;
+
+      const nextScale = Math.max(0.78, Math.min(0.96, width / 470));
+      setDesktopListScale((prev) => (Math.abs(prev - nextScale) < 0.01 ? prev : nextScale));
+    };
+
+    update();
+
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => update());
+    ro.observe(root);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!setAsRankingsFeedback) return;
@@ -417,7 +447,16 @@ export default function RankingsList(props: {
   const showTierBars = false;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: 0, gap: 10 }}>
+    <div
+      ref={rootRef}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+        gap: 10,
+        zoom: Math.max(0.76, Math.min(0.98, desktopListScale * Math.min(uiScale, 1))),
+      }}
+    >
       {/* Top controls: actions, rankings tabs, then position tabs */}
       <div
         style={{

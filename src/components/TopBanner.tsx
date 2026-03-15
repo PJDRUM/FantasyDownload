@@ -12,6 +12,7 @@ type TopBannerProps = {
   onOpenCompareRankings: () => void;
   modeNavLeftPx: number | null;
   showModeNav?: boolean;
+  uiScale?: number;
 };
 
 type PodcastsItem = { label: string; href?: string; imgSrc: string };
@@ -58,6 +59,7 @@ export default function TopBanner({
   onOpenCompareRankings,
   modeNavLeftPx,
   showModeNav = true,
+  uiScale = 1,
 }: TopBannerProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsMenuRef = useRef<HTMLDivElement>(null);
@@ -395,41 +397,63 @@ export default function TopBanner({
   const navBtnBase: React.CSSProperties = {
     display: "inline-flex",
     alignItems: "center",
-    gap: 6,
-    padding: "8px 12px",
+    justifyContent: "center",
+    gap: 6 * uiScale,
+    padding: `${8 * uiScale}px 0`,
     border: "none",
     borderRadius: 0,
-    transition: "background 260ms ease",
-    color: "rgba(255,255,255,0.92)",
-    fontWeight: 900,
-    fontSize: 18,
-    textShadow: "0 10px 26px rgba(0,0,0,0.65)",
+    transition: "color 180ms ease, opacity 180ms ease",
+    color: "rgba(245,247,255,0.74)",
+    fontWeight: 700,
+    fontSize: 16 * uiScale,
     whiteSpace: "nowrap",
     background: "transparent",
+    letterSpacing: "0.02em",
+  };
+
+  const actionBtnBase: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8 * uiScale,
+    minHeight: 32 * uiScale,
+    padding: `${8 * uiScale}px 0`,
+    borderRadius: 0,
+    border: "none",
+    background: "transparent",
+    color: "rgba(245,247,255,0.76)",
+    fontWeight: 700,
+    fontSize: 15 * uiScale,
+    lineHeight: 1,
+    whiteSpace: "nowrap",
+    cursor: "pointer",
+    transition: "color 180ms ease, opacity 180ms ease",
   };
 
   return (
     <div style={{ position: "relative", zIndex: 20 }}>
-      {/* Full-width banner: square edges, touches TopLinksBar */}
       <div
         style={{
           width: "100%",
-          display: "flex",
-          alignItems: "stretch",
+          display: "grid",
+          gridTemplateColumns: "minmax(220px, auto) minmax(0, 1fr) minmax(220px, auto)",
+          alignItems: "center",
+          gap: 16 * uiScale,
+          padding: `${12 * uiScale}px ${20 * uiScale}px`,
           borderRadius: 0,
           border: "none",
           overflow: "visible",
           boxShadow: "none",
-          background: "linear-gradient(90deg, #000000 0%, #000814 35%, #001d3d 70%, #003566 100%)",
+          background:
+            "linear-gradient(135deg, rgba(7,10,18,0.96) 0%, rgba(10,18,34,0.94) 52%, rgba(16,39,68,0.92) 100%)",
+          backdropFilter: "none",
         }}
       >
-        {/* Left logo area */}
         <div
           style={{
-            background: "transparent",
             display: "flex",
             alignItems: "center",
-            padding: "10px 14px",
+            minWidth: 0,
           }}
         >
           <a
@@ -437,47 +461,90 @@ export default function TopBanner({
             target="_blank"
             rel="noopener noreferrer"
             aria-label="FantasyDownload"
-            style={{ display: "inline-flex", alignItems: "center", cursor: "pointer" }}
+            style={{ display: "inline-flex", alignItems: "center", cursor: "pointer", maxWidth: "100%" }}
           >
             <img
               src="/fantasydownloadlogo.png"
               alt="FantasyDownload"
               style={{
-                height: 78,
+                height: 60 * uiScale,
                 width: "auto",
                 maxWidth: "100%",
                 objectFit: "contain",
-                filter: "drop-shadow(0 10px 24px rgba(0,0,0,0.65))",
+                filter: "drop-shadow(0 8px 18px rgba(0,0,0,0.42))",
               }}
               draggable={false}
             />
           </a>
         </div>
+        {showModeNav ? (
+          <div style={{ display: "flex", justifyContent: "center", minWidth: 0 }}>
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 26 * uiScale,
+              }}
+            >
+              <button
+                type="button"
+                onClick={onOpenDraftCompanion}
+                style={{
+                  ...navBtnBase,
+                  cursor: "pointer",
+                  position: "relative",
+                  color: activeView === "draftCompanion" ? "#ffffff" : "rgba(245,247,255,0.72)",
+                  opacity: activeView === "draftCompanion" ? 1 : 0.88,
+                }}
+              >
+                <span>Draft Companion</span>
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    bottom: -6 * uiScale,
+                    height: 2 * uiScale,
+                    borderRadius: 999,
+                    background: activeView === "draftCompanion" ? "rgba(255,255,255,0.92)" : "transparent",
+                  }}
+                />
+              </button>
 
-        <div style={{ flex: 1, minWidth: 0 }} />
+              <button
+                type="button"
+                onClick={onOpenCompareRankings}
+                style={{
+                  ...navBtnBase,
+                  cursor: "pointer",
+                  position: "relative",
+                  color: activeView === "compareRankings" ? "#ffffff" : "rgba(245,247,255,0.72)",
+                  opacity: activeView === "compareRankings" ? 1 : 0.88,
+                }}
+              >
+                <span>Compare Rankings</span>
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    bottom: -6 * uiScale,
+                    height: 2 * uiScale,
+                    borderRadius: 999,
+                    background: activeView === "compareRankings" ? "rgba(255,255,255,0.92)" : "transparent",
+                  }}
+                />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div />
+        )}
 
-        {/* Right actions: Podcasts next to Settings */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px" }}>
-          <button
-            type="button"
-            onClick={onOpenDraftSync}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "8px 12px",
-              borderRadius: 12,
-              border: "1px solid rgba(255,255,255,0.1)",
-              background: "rgba(255,255,255,0.08)",
-              color: "rgba(255,255,255,0.92)",
-              fontWeight: 800,
-              fontSize: 14,
-              lineHeight: 1,
-              whiteSpace: "nowrap",
-              textShadow: "0 8px 20px rgba(0,0,0,0.55)",
-              cursor: "pointer",
-            }}
-          >
+        <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 22 * uiScale, minWidth: 0 }}>
+          <button type="button" onClick={onOpenDraftSync} style={actionBtnBase}>
             <span>Sync Sleeper</span>
           </button>
 
@@ -488,14 +555,13 @@ export default function TopBanner({
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             style={{
-              ...navBtnBase,
-              cursor: "pointer",
-              background: isPodcastsVisible ? "rgba(255,255,255,0.08)" : "transparent",
+              ...actionBtnBase,
+              color: isPodcastsVisible ? "#ffffff" : "rgba(245,247,255,0.76)",
+              opacity: isPodcastsVisible ? 1 : 0.92,
             }}
           >
             <span>Podcasts</span>
-            {/* Chevron should point DOWN */}
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ marginLeft: -1 }}>
+            <svg width={16 * uiScale} height={16 * uiScale} viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M7 10l5 5 5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
@@ -506,22 +572,19 @@ export default function TopBanner({
               title="Settings"
               aria-label="Settings"
               style={{
-                width: 42,
-                height: 42,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: 12,
-                border: "1px solid var(--border-0)",
-                background: "var(--panel-bg)",
-                color: "var(--text-0)",
-                cursor: "pointer",
+                ...actionBtnBase,
+                width: 24 * uiScale,
+                minWidth: 24 * uiScale,
+                minHeight: 24 * uiScale,
+                padding: 0,
+                color: settingsOpen ? "#ffffff" : "rgba(245,247,255,0.76)",
+                opacity: settingsOpen ? 1 : 0.9,
               }}
             >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M4 6h16" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-                <path d="M4 12h16" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-                <path d="M4 18h16" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+              <svg width={18 * uiScale} height={18 * uiScale} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 6h16" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" />
+                <path d="M4 12h16" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" />
+                <path d="M4 18h16" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" />
               </svg>
             </button>
 
@@ -530,14 +593,15 @@ export default function TopBanner({
                 style={{
                   position: "absolute",
                   right: 0,
-                  top: 52,
-                  minWidth: 190,
-                  padding: 6,
-                  borderRadius: 14,
-                  border: "1px solid var(--border-0)",
-                  background: "var(--panel-bg)",
-                  boxShadow: "var(--shadow-0)",
+                  top: 52 * uiScale,
+                  minWidth: 220 * uiScale,
+                  padding: 8 * uiScale,
+                  borderRadius: 18 * uiScale,
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  background: "rgba(10,15,26,0.98)",
+                  boxShadow: "0 22px 44px rgba(0,0,0,0.35)",
                   zIndex: 5000,
+                  backdropFilter: "blur(16px)",
                 }}
               >
                 <button
@@ -548,12 +612,13 @@ export default function TopBanner({
                   style={{
                     width: "100%",
                     textAlign: "left",
-                    padding: "10px 12px",
-                    borderRadius: 12,
+                    padding: `${12 * uiScale}px ${14 * uiScale}px`,
+                    borderRadius: 14 * uiScale,
                     border: "none",
                     background: "transparent",
-                    color: "var(--text-0)",
-                    fontWeight: 900,
+                    color: "rgba(248,250,255,0.92)",
+                    fontWeight: 800,
+                    fontSize: 14 * uiScale,
                     cursor: "pointer",
                   }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
@@ -570,13 +635,14 @@ export default function TopBanner({
                   style={{
                     width: "100%",
                     textAlign: "left",
-                    padding: "10px 12px",
-                    borderRadius: 12,
+                    padding: `${12 * uiScale}px ${14 * uiScale}px`,
+                    borderRadius: 14 * uiScale,
                     border: "none",
                     background: "transparent",
-                    color: "white",
+                    color: "rgba(248,250,255,0.92)",
                     cursor: "pointer",
                     fontWeight: 700,
+                    fontSize: 14 * uiScale,
                   }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
@@ -592,12 +658,13 @@ export default function TopBanner({
                   style={{
                     width: "100%",
                     textAlign: "left",
-                    padding: "10px 12px",
-                    borderRadius: 12,
+                    padding: `${12 * uiScale}px ${14 * uiScale}px`,
+                    borderRadius: 14 * uiScale,
                     border: "none",
                     background: "transparent",
-                    color: "var(--text-0)",
-                    fontWeight: 900,
+                    color: "rgba(248,250,255,0.92)",
+                    fontWeight: 800,
+                    fontSize: 14 * uiScale,
                     cursor: "pointer",
                   }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
@@ -614,12 +681,13 @@ export default function TopBanner({
                   style={{
                     width: "100%",
                     textAlign: "left",
-                    padding: "10px 12px",
-                    borderRadius: 12,
+                    padding: `${12 * uiScale}px ${14 * uiScale}px`,
+                    borderRadius: 14 * uiScale,
                     border: "none",
                     background: "transparent",
-                    color: "var(--text-0)",
-                    fontWeight: 900,
+                    color: "rgba(248,250,255,0.92)",
+                    fontWeight: 800,
+                    fontSize: 14 * uiScale,
                     cursor: "pointer",
                   }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
@@ -631,52 +699,6 @@ export default function TopBanner({
             )}
           </div>
         </div>
-
-        {showModeNav && (
-          <div
-            style={{
-              position: "absolute",
-              left: modeNavLeftPx != null ? modeNavLeftPx : 420,
-              top: "50%",
-              transform: "translateY(-50%)",
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              pointerEvents: "none",
-              width: 470,
-            }}
-          >
-            <button
-              type="button"
-              onClick={onOpenDraftCompanion}
-              style={{
-                ...navBtnBase,
-                cursor: "pointer",
-                background: activeView === "draftCompanion" ? "rgba(255,255,255,0.12)" : "transparent",
-                pointerEvents: "auto",
-                width: 220,
-                justifyContent: "center",
-              }}
-            >
-              <span>Draft Companion</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={onOpenCompareRankings}
-              style={{
-                ...navBtnBase,
-                cursor: "pointer",
-                background: activeView === "compareRankings" ? "rgba(255,255,255,0.12)" : "transparent",
-                pointerEvents: "auto",
-                width: 220,
-                justifyContent: "center",
-              }}
-            >
-              <span>Compare Rankings</span>
-            </button>
-          </div>
-        )}
       </div>
 
       {podcastsPortal}
