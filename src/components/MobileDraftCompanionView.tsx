@@ -501,7 +501,15 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                 lineHeight: isTablet ? "14px" : 1.05,
                 cursor: "pointer",
                 whiteSpace: isTablet ? "nowrap" : "normal",
-                flex: isTablet ? "0 0 auto" : tab === "Rankings Board" ? "1.25 1 0" : "1 1 0",
+                flex: isTablet
+                  ? "0 0 auto"
+                  : tab === "Rankings Board"
+                    ? "1.25 1 0"
+                    : tab === "Cheatsheet"
+                      ? "1.1 1 0"
+                      : tab === "Teams"
+                        ? "0.88 1 0"
+                      : "1 1 0",
                 minWidth: 0,
                 minHeight: isTablet ? undefined : 28,
                 textAlign: "center",
