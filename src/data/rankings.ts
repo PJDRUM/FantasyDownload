@@ -1430,4 +1430,4 @@ export const rankingIds: string[] = [
 
 export const KTC_LAST_UPDATED = "03/15/26 03:53am";
 export const ADP_LAST_UPDATED = "03/13/26 03:12pm";
-export const CONSENSUS_LAST_UPDATED = "03/14/26 05:40pm";
+export const CONSENSUS_LAST_UPDATED = "03/15/26 05:41pm";
