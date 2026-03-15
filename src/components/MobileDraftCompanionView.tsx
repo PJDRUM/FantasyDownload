@@ -498,12 +498,15 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                 color: "var(--text-0)",
                 fontWeight: 800,
                 fontSize: isTablet ? 12 : 8,
-                lineHeight: isTablet ? "14px" : "9px",
+                lineHeight: isTablet ? "14px" : 1.05,
                 cursor: "pointer",
                 whiteSpace: isTablet ? "nowrap" : "normal",
                 flex: isTablet ? "0 0 auto" : tab === "Rankings Board" ? "1.25 1 0" : "1 1 0",
                 minWidth: 0,
+                minHeight: isTablet ? undefined : 28,
                 textAlign: "center",
+                display: "grid",
+                placeItems: "center",
               }}
             >
               {getTouchTabLabel(tab, isTablet)}
