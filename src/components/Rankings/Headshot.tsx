@@ -56,8 +56,8 @@ export default function Headshot({
         loading="lazy"
         decoding="async"
         style={{
-          width: 35,
-          height: 35,
+          width: 46,
+          height: 46,
           borderRadius: "50%",
           objectFit: "cover",
           border: "1px solid rgba(0,0,0,0.25)",
@@ -76,8 +76,8 @@ export default function Headshot({
       loading="lazy"
       decoding="async"
       style={{
-        width: 35,
-        height: 35,
+        width: 46,
+        height: 46,
         borderRadius: "50%",
         objectFit: "cover",
         border: "1px solid rgba(0,0,0,0.25)",

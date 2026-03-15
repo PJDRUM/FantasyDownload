@@ -406,10 +406,10 @@ export default function RankingsList(props: {
 
   // Favorite Star Positioning (edit these values to fine tune)
   const FAVORITE_STAR: FavoriteStarStyle = {
-    leftPx: leftGutterPx + rowCardPaddingPx + 427,
+    leftPx: leftGutterPx + rowCardPaddingPx + 421,
     topPx: 5,
-    sizePx: 15,
-    borderPx: 1,
+    sizePx: 20,
+    borderPx: 1.3,
   };
 
   // IMPORTANT: We are using inline Tier separators (TIER X) now.
@@ -1223,8 +1223,8 @@ export default function RankingsList(props: {
                         left: 10,
                         top: "50%",
                         transform: "translateY(-50%)",
-                        width: 28,
-                        height: 28,
+                        width: 36,
+                        height: 36,
                         borderRadius: 999,
                         border: "1px solid rgba(255,255,255,0.22)",
                         background: drafted ? "rgba(239, 68, 68, 0.18)" : "rgba(34, 197, 94, 0.18)",
@@ -1233,7 +1233,7 @@ export default function RankingsList(props: {
                         alignItems: "center",
                         justifyContent: "center",
                         fontWeight: 900,
-                        fontSize: 18,
+                        fontSize: 23,
                         lineHeight: 1,
                         cursor: "pointer",
                         userSelect: "none",
@@ -1279,7 +1279,7 @@ export default function RankingsList(props: {
                     {/* Inner content: keeps the same left gutter/padding, but is transparent so the row background can bleed edge-to-edge */}
                     <div
                       style={{
-                        padding: "14px 10px",
+                        padding: "18px 13px",
                         background: "transparent",
                         color: "rgba(255,255,255,0.92)",
                         opacity: drafted ? 0.85 : 1,
@@ -1292,17 +1292,17 @@ export default function RankingsList(props: {
                         style={{
                           display: "grid",
                           gridTemplateColumns: gridCols,
-                          gap: 6,
+                          gap: 8,
                           minWidth: 0,
                           width: "100%",
                           alignItems: "center",
                         }}
                       >
-                        <div style={{ fontWeight: 900, color: "rgba(255,255,255,0.75)" }}>
+                        <div style={{ fontWeight: 900, color: "rgba(255,255,255,0.75)", fontSize: 17 }}>
                           {hideRankColumn ? "\u00A0" : stableRank}
                         </div>
 
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 13, minWidth: 0 }}>
                           <Headshot src={p?.imageUrl} alt={p.name} />
 
                           <div style={{ minWidth: 0 }}>
@@ -1312,7 +1312,7 @@ export default function RankingsList(props: {
                                 alignItems: "center",
                                 justifyContent: "flex-start",
                                 fontWeight: 900,
-                                fontSize: "clamp(11px, 2.4vw, 16px)",
+                                fontSize: "clamp(14px, 3.1vw, 21px)",
                                 lineHeight: 1.1,
                                 whiteSpace: "normal",
                                 overflow: "visible",
@@ -1345,30 +1345,30 @@ export default function RankingsList(props: {
                             </div>
                             <div
                               style={{
-                                fontSize: "clamp(10px, 2.2vw, 12px)",
+                                fontSize: "clamp(13px, 2.9vw, 16px)",
                                 opacity: 0.75,
                                 display: "flex",
                                 alignItems: "center",
-                                gap: 8,
-                                marginTop: 4,
+                                gap: 10,
+                                marginTop: 5,
                               }}
                             >
-                              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                                 <span style={{ color: posColor(p.position), fontWeight: 700 }}>{p.position}</span>
                                 <span style={{ opacity: 0.55 }}>•</span>
                                 <TeamLogo
                                   team={p.team}
-                                  size={24}
+                                  size={31}
                                   fallback={<span>{formatTeamAbbreviation(p.team, "--")}</span>}
                                 />
                               </span>
                               {drafted && (
                                 <span
                                   style={{
-                                    fontSize: 10,
+                                    fontSize: 13,
                                     fontWeight: 900,
                                     letterSpacing: 0.4,
-                                    padding: "2px 8px",
+                                    padding: "3px 10px",
                                     borderRadius: 999,
                                     background: "rgba(240, 234, 234, 0.14)",
                                     color: "rgba(255,255,255,0.86)",
@@ -1386,7 +1386,7 @@ export default function RankingsList(props: {
                             style={{
                               textAlign: "center",
                               fontWeight: 900,
-                              fontSize: "clamp(10px, 2.2vw, 12px)",
+                              fontSize: "clamp(13px, 2.9vw, 16px)",
                               color: "rgba(255,255,255,0.78)",
                             }}
                           >
@@ -1406,7 +1406,7 @@ export default function RankingsList(props: {
                               style={{
                                 width: "100%",
                                 maxWidth: "100%",
-                                height: 10,
+                                height: 13,
                                 borderRadius: 999,
                                 background: "rgba(255,255,255,0.22)",
                                 overflow: "hidden",
@@ -1423,7 +1423,7 @@ export default function RankingsList(props: {
                               style={{
                                 width: "100%",
                                 maxWidth: "100%",
-                                height: 10,
+                                height: 13,
                                 borderRadius: 999,
                                 background: "rgba(255,255,255,0.22)",
                                 overflow: "hidden",
