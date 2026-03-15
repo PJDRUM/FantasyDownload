@@ -506,7 +506,7 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
                   : tab === "Rankings Board"
                     ? "1.25 1 0"
                     : tab === "Cheatsheet"
-                      ? "1.1 1 0"
+                      ? "1.18 1 0"
                       : tab === "Teams"
                         ? "0.88 1 0"
                       : "1 1 0",
