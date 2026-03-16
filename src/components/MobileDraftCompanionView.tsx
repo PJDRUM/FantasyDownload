@@ -355,6 +355,7 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
   const mobileSettingsRef = useRef<HTMLDivElement | null>(null);
   const mobileSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const isTablet = viewportWidth >= 768;
+  const tabletUiScale = isTablet ? Math.max(0.88, Math.min(1.08, viewportWidth / 960)) : 1;
   const canAddPlayer = newPlayerName.trim().length > 0;
 
   const submitAddPlayer = () => {
@@ -473,14 +474,15 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
             border: "1px solid rgba(255,255,255,0.12)",
             background: "rgba(38,38,38,0.92)",
             boxShadow: "0 14px 28px rgba(0,0,0,0.32)",
-            display: "flex",
+            display: "inline-flex",
             gap: 2,
             alignItems: "center",
             padding: isTablet ? 3 : 2,
             overflowX: isTablet ? "auto" : "hidden",
             maxWidth: "100%",
             minWidth: 0,
-            flex: 1,
+            width: "fit-content",
+            flex: "0 1 auto",
             scrollbarWidth: "none",
             msOverflowStyle: "none",
           }}
@@ -779,6 +781,7 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
           availableTabs={TOUCH_LAYOUT_TABS}
           mobileMode
           tabletMode={isTablet}
+          tabletScale={tabletUiScale}
           allowDraftBoardReorder={false}
           showTabSwitcher={false}
         />
@@ -808,6 +811,7 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
             flexDirection: "column",
             minHeight: 0,
             height: "100%",
+            zoom: isTablet ? tabletUiScale : undefined,
             transform: sheetHeight <= collapsedPeekHeight + 8 ? "translateY(calc(100% - 18px))" : "translateY(0)",
             transition: dragStateRef.current ? "none" : "transform 180ms ease",
           }}

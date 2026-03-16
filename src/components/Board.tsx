@@ -506,6 +506,7 @@ export default function Board(props: {
   availableTabs?: BoardTab[];
   mobileMode?: boolean;
   tabletMode?: boolean;
+  tabletScale?: number;
   allowDraftBoardReorder?: boolean;
   showTabSwitcher?: boolean;
   onOpenDraftSync?: () => void;
@@ -547,6 +548,7 @@ export default function Board(props: {
     availableTabs,
     mobileMode = false,
     tabletMode = false,
+    tabletScale = 1,
     allowDraftBoardReorder = true,
     showTabSwitcher = true,
     onOpenDraftSync,
@@ -1080,6 +1082,7 @@ const [plannerAssignQuery, setPlannerAssignQuery] = React.useState<string>("");
 
         boxSizing: "border-box",
         overflow: "auto",
+        zoom: mobileMode && tabletMode ? tabletScale : undefined,
         padding: mobileMode ? 0 : 12,
         borderRadius: mobileMode ? 0 : 16,
         border: mobileMode ? "none" : "1px solid var(--border-0)",
