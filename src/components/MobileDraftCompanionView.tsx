@@ -462,7 +462,7 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
           display: "flex",
           gap: 6,
           alignItems: "center",
-          justifyContent: "space-between",
+          justifyContent: "flex-start",
           padding: isTablet ? 4 : 1,
           borderRadius: 999,
           margin: isTablet ? "12px 12px 0" : "6px 1px 0",
@@ -481,8 +481,10 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
             overflowX: isTablet ? "auto" : "hidden",
             maxWidth: "100%",
             minWidth: 0,
-            width: "fit-content",
-            flex: "0 1 auto",
+            width: "max-content",
+            flex: "0 0 auto",
+            alignSelf: "flex-start",
+            whiteSpace: "nowrap",
             scrollbarWidth: "none",
             msOverflowStyle: "none",
           }}
@@ -528,6 +530,8 @@ export default function MobileDraftCompanionView(props: MobileDraftCompanionView
             display: "flex",
             alignItems: "center",
             gap: isTablet ? 6 : 4,
+            marginLeft: "auto",
+            flex: "0 0 auto",
           }}
         >
           <button
